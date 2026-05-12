@@ -182,25 +182,97 @@ hooks/
 
 ---
 
-## 🚀 Cómo correr el proyecto
+## 🚀 Setup — Primera vez en una PC nueva
+
+### Prerequisitos
+
+Antes de clonar, asegurate de tener instalado:
+
+| Herramienta                    | Versión mínima  | Verificar con                   |
+| ------------------------------ | --------------- | ------------------------------- |
+| [Node.js](https://nodejs.org/) | 18.x o superior | `node -v`                       |
+| npm                            | 9.x o superior  | `npm -v`                        |
+| [Expo Go](https://expo.dev/go) | última versión  | App del celular (iOS o Android) |
+
+> **No se necesita** Android Studio, Xcode, ni ningún emulador. Con Node.js y Expo Go en el celular es suficiente.
+
+---
+
+### Paso a paso
 
 ```bash
-# Instalar dependencias
+# 1. Clonar el repositorio
+git clone https://github.com/Borhamus/Quema_de_SLP.git
+
+# 2. Entrar a la carpeta del proyecto
+cd Quema_de_SLP
+
+# 3. Instalar dependencias
+#    (node_modules nunca se versiona, hay que instalarlo siempre en cada PC nueva)
 npm install
 
-# Iniciar en modo desarrollo
+# 4. Iniciar el servidor de desarrollo
+npx expo start
+```
+
+Una vez que corre `npx expo start`, la terminal muestra un **QR code** y un menú de opciones.
+
+---
+
+### Opción A — Expo Go en el celular (recomendado para testear en dispositivo real)
+
+1. Instalá la app **Expo Go** en tu celular ([iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
+2. Asegurate de que el celular y la PC estén en la **misma red Wi-Fi**
+3. Escaneá el QR que aparece en la terminal:
+   - **Android:** con la cámara del celular o directamente desde Expo Go
+   - **iOS:** con la cámara nativa, que detecta el QR automáticamente
+4. La app se abre en Expo Go. Cada vez que guardes un archivo, se recarga automáticamente (Fast Refresh)
+
+> ⚠️ Si el QR no conecta, probá presionar `s` en la terminal para cambiar a **Expo tunnel** (funciona aunque estén en redes distintas, pero es más lento).
+
+---
+
+### Opción B — Web en el navegador
+
+```bash
+# Desde el menú de expo start, presionar:
+w
+
+# O directamente al iniciar:
+npx expo start --web
+```
+
+Abre la app en `http://localhost:8081` en tu navegador. Útil para desarrollo rápido, aunque algunos componentes nativos pueden verse distinto o no funcionar igual que en el celular.
+
+---
+
+### Flujo de trabajo diario (después del setup inicial)
+
+```bash
+# Desde la carpeta del proyecto:
 npx expo start
 
-# Correr en Android
-npx expo run:android
-
-# Correr en iOS
-npx expo run:ios
+# Shortcuts útiles dentro del servidor:
+#   r  →  Reload de la app
+#   s  →  Cambiar entre Expo Go / tunnel / local
+#   w  →  Abrir en el navegador
+#   j  →  Abrir el debugger de JavaScript
+#   ?  →  Ver todos los comandos disponibles
 ```
+
+---
+
+### Posibles errores comunes
+
+| Error                                 | Causa                             | Solución                                                          |
+| ------------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
+| `command not found: expo`             | Expo CLI no instalado globalmente | Usar siempre `npx expo` (ya está en el proyecto como dependencia) |
+| `Unable to find expo in this project` | Faltó correr `npm install`        | Correr `npm install` en la carpeta del proyecto                   |
+| QR no conecta en Expo Go              | PC y celular en redes distintas   | Presionar `s` en la terminal para usar tunnel                     |
+| Puerto 8081 ocupado                   | Otro proceso usando el puerto     | Cerrar la otra terminal o usar `npx expo start --port 8082`       |
 
 ---
 
 ## 👥 Equipo
 
-Franco Joaquín Gómez
-Proyecto universitario — Facultad de [UNTDF].
+Proyecto universitario — Facultad de [nombre de la facultad].
