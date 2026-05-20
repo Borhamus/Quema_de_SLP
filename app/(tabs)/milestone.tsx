@@ -26,49 +26,17 @@ const C = {
   ok: "#00ff66",
 };
 
-const MONO = Platform.select({
-  ios: "Menlo",
-  android: "monospace",
-  default: "monospace",
-});
+const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
 
 // ── DATA (intacta) ──────────────────────────────────────────────
 const GOAL_TOTAL = 500;
 const CURRENT_TOTAL = 135;
 
 const milestonesData = [
-  {
-    id: 1,
-    amount: 50,
-    title: "Milestone 1: Reclutamiento",
-    status: "completed",
-    bought: "Axie #1234 (Pekin)",
-    txHash: "0x8a...4b2",
-  },
-  {
-    id: 2,
-    amount: 100,
-    title: "Milestone 2: Equipamiento",
-    status: "completed",
-    bought: "Item: Espada Legendaria",
-    txHash: "0x7c...9a1",
-  },
-  {
-    id: 3,
-    amount: 200,
-    title: "Milestone 3: Expansión",
-    status: "pending",
-    bought: null,
-    txHash: null,
-  },
-  {
-    id: 4,
-    amount: 500,
-    title: "Milestone Final: Gran Premio",
-    status: "pending",
-    bought: null,
-    txHash: null,
-  },
+  { id: 1, amount: 50, title: "Milestone 1: Reclutamiento", status: "completed", bought: "Axie #1234 (Pekin)", txHash: "0x8a...4b2" },
+  { id: 2, amount: 100, title: "Milestone 2: Equipamiento", status: "completed", bought: "Item: Espada Legendaria", txHash: "0x7c...9a1" },
+  { id: 3, amount: 200, title: "Milestone 3: Expansión", status: "pending", bought: null, txHash: null },
+  { id: 4, amount: 500, title: "Milestone Final: Gran Premio", status: "pending", bought: null, txHash: null },
 ];
 
 // ── HOOKS ───────────────────────────────────────────────────────
@@ -77,17 +45,9 @@ function useBlink(period = 900) {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(v, {
-          toValue: 0.25,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-        Animated.timing(v, {
-          toValue: 1,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-      ]),
+        Animated.timing(v, { toValue: 0.25, duration: period / 2, useNativeDriver: true }),
+        Animated.timing(v, { toValue: 1, duration: period / 2, useNativeDriver: true }),
+      ])
     );
     loop.start();
     return () => loop.stop();
@@ -103,9 +63,7 @@ function HudBar() {
       <Text style={hud.hp}>
         HP <Text style={{ color: C.red }}>████░</Text> 1P
       </Text>
-      <Animated.Text style={[hud.rec, { opacity: blink }]}>
-        ● LIVE GOAL
-      </Animated.Text>
+      <Animated.Text style={[hud.rec, { opacity: blink }]}>● LIVE GOAL</Animated.Text>
       <Text style={hud.hi}>HISC {GOAL_TOTAL.toString().padStart(6, "0")}</Text>
     </View>
   );
@@ -206,29 +164,20 @@ function MilestoneCard({ item, index }: { item: any; index: number }) {
     <View style={[mc.card, done ? mc.cardDone : mc.cardLocked]}>
       {/* Tape header */}
       <View style={[mc.tape, done ? mc.tapeDone : mc.tapeLocked]}>
-        <Text style={mc.tapeIdx}>
-          STAGE {String(index + 1).padStart(2, "0")}
-        </Text>
+        <Text style={mc.tapeIdx}>STAGE {String(index + 1).padStart(2, "0")}</Text>
         <Text style={[mc.tapeStatus, { color: done ? C.ok : C.parchmentDim }]}>
           {done ? "▸ CLEARED" : "▸ LOCKED"}
         </Text>
       </View>
 
       <View style={mc.body}>
-        <View style={mc.left}>
-          {done ? <PixelCoin size={36} /> : <PixelLock size={32} />}
-        </View>
+        <View style={mc.left}>{done ? <PixelCoin size={36} /> : <PixelLock size={32} />}</View>
 
         <View style={{ flex: 1 }}>
           <Text style={mc.amount}>
-            META{" "}
-            <Text style={{ color: done ? C.amber : C.parchmentDim }}>
-              ${item.amount}
-            </Text>
+            META <Text style={{ color: done ? C.amber : C.parchmentDim }}>${item.amount}</Text>
           </Text>
-          <Text style={mc.title}>
-            {item.title.replace(/^Milestone[^:]*:\s*/i, "")}
-          </Text>
+          <Text style={mc.title}>{item.title.replace(/^Milestone[^:]*:\s*/i, "")}</Text>
 
           {done && (
             <View style={mc.reward}>
@@ -248,10 +197,7 @@ function ConnectorDots() {
     <View style={{ alignItems: "center", marginVertical: 4 }}>
       <View style={{ flexDirection: "row", gap: 4 }}>
         {[0, 1, 2].map((i) => (
-          <View
-            key={i}
-            style={{ width: 4, height: 4, backgroundColor: C.redDim }}
-          />
+          <View key={i} style={{ width: 4, height: 4, backgroundColor: C.redDim }} />
         ))}
       </View>
     </View>
@@ -262,10 +208,7 @@ function ConnectorDots() {
 export default function MilestoneScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <HudBar />
 
         {/* Title block */}
@@ -291,8 +234,7 @@ export default function MilestoneScreen() {
           <Text style={styles.sectionTitle}>STAGES / LOGROS</Text>
           <View style={styles.sectionLine} />
           <Text style={styles.sectionCount}>
-            {milestonesData.filter((m) => m.status === "completed").length}/
-            {milestonesData.length}
+            {milestonesData.filter((m) => m.status === "completed").length}/{milestonesData.length}
           </Text>
         </View>
 
@@ -316,8 +258,7 @@ export default function MilestoneScreen() {
             <View style={vault.dotGreen} />
           </View>
           <Text style={vault.desc}>
-            Todos los activos comprados por los milestones se almacenan en esta
-            billetera pública en Ronin Network.
+            Todos los activos comprados por los milestones se almacenan en esta billetera pública en Ronin Network.
           </Text>
           <View style={vault.addrRow}>
             <View style={vault.addrChip}>
@@ -329,9 +270,7 @@ export default function MilestoneScreen() {
             </TouchableOpacity>
           </View>
           <View style={vault.bottomTape}>
-            <Text style={vault.bottomTxt}>
-              ★ PUBLIC // VERIFIABLE ON-CHAIN ★
-            </Text>
+            <Text style={vault.bottomTxt}>★ PUBLIC // VERIFIABLE ON-CHAIN ★</Text>
           </View>
         </View>
 
@@ -346,13 +285,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   scrollContent: { padding: 16, paddingTop: 8, paddingBottom: 60 },
   titleWrap: { alignItems: "center", marginTop: 8, marginBottom: 18 },
-  coin: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 3,
-    marginBottom: 6,
-  },
+  coin: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 3, marginBottom: 6 },
   title: {
     color: C.parchment,
     fontFamily: MONO,
@@ -385,19 +318,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  panelHeadTxt: {
-    color: C.red,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  panelHeadTxtDim: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 1.5,
-  },
+  panelHeadTxt: { color: C.red, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
+  panelHeadTxtDim: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5 },
   sectionHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -406,20 +328,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionDot: { width: 8, height: 8, backgroundColor: C.red },
-  sectionTitle: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  sectionTitle: { color: C.parchment, fontFamily: MONO, fontSize: 12, letterSpacing: 2, fontWeight: "700" },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.redDark },
-  sectionCount: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 1.5,
-  },
+  sectionCount: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 1.5 },
 });
 
 const hud = StyleSheet.create({
@@ -432,12 +343,7 @@ const hud = StyleSheet.create({
     borderBottomColor: C.redDark,
     marginBottom: 4,
   },
-  hp: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 1.2,
-  },
+  hp: { color: C.parchment, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
   rec: { color: C.red, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5 },
   hi: { color: C.amber, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
 });
@@ -460,26 +366,9 @@ const pm = StyleSheet.create({
     marginTop: 8,
     alignItems: "center",
   },
-  value: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 14,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  pct: {
-    color: C.red,
-    fontFamily: MONO,
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 2,
-  },
-  goal: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 1,
-  },
+  value: { color: C.parchment, fontFamily: MONO, fontSize: 14, fontWeight: "900", letterSpacing: 1 },
+  pct: { color: C.red, fontFamily: MONO, fontSize: 18, fontWeight: "900", letterSpacing: 2 },
+  goal: { color: C.parchmentDim, fontFamily: MONO, fontSize: 12, letterSpacing: 1 },
 });
 
 const mc = StyleSheet.create({
@@ -498,40 +387,12 @@ const mc = StyleSheet.create({
   },
   tapeDone: { backgroundColor: "#2a1d00" },
   tapeLocked: { backgroundColor: "#1a0008" },
-  tapeIdx: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  tapeStatus: {
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    fontWeight: "700",
-  },
-  body: {
-    flexDirection: "row",
-    padding: 14,
-    gap: 14,
-    alignItems: "flex-start",
-  },
+  tapeIdx: { color: C.parchment, fontFamily: MONO, fontSize: 10, letterSpacing: 2, fontWeight: "700" },
+  tapeStatus: { fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, fontWeight: "700" },
+  body: { flexDirection: "row", padding: 14, gap: 14, alignItems: "flex-start" },
   left: { paddingTop: 2 },
-  amount: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    marginBottom: 2,
-  },
-  title: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
+  amount: { color: C.parchment, fontFamily: MONO, fontSize: 11, letterSpacing: 2, marginBottom: 2 },
+  title: { color: C.parchment, fontFamily: MONO, fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
   reward: {
     marginTop: 10,
     padding: 10,
@@ -539,12 +400,7 @@ const mc = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: C.amber,
   },
-  rewardLabel: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 2,
-  },
+  rewardLabel: { color: C.amber, fontFamily: MONO, fontSize: 9, letterSpacing: 2 },
   assetName: {
     color: C.parchment,
     fontFamily: MONO,
@@ -553,23 +409,11 @@ const mc = StyleSheet.create({
     marginTop: 4,
     letterSpacing: 0.5,
   },
-  tx: {
-    color: C.muted,
-    fontFamily: MONO,
-    fontSize: 10,
-    marginTop: 4,
-    letterSpacing: 1,
-  },
+  tx: { color: C.muted, fontFamily: MONO, fontSize: 10, marginTop: 4, letterSpacing: 1 },
 });
 
 const vault = StyleSheet.create({
-  box: {
-    borderWidth: 2,
-    borderColor: C.amber,
-    backgroundColor: C.ink,
-    padding: 0,
-    marginBottom: 18,
-  },
+  box: { borderWidth: 2, borderColor: C.amber, backgroundColor: C.ink, padding: 0, marginBottom: 18 },
   head: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -580,29 +424,10 @@ const vault = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.amberDim,
   },
-  headTxt: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  headTxt: { color: C.amber, fontFamily: MONO, fontSize: 12, letterSpacing: 2, fontWeight: "700" },
   dotGreen: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.ok },
-  desc: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 11,
-    lineHeight: 18,
-    padding: 14,
-    paddingBottom: 4,
-  },
-  addrRow: {
-    flexDirection: "row",
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    gap: 8,
-    alignItems: "stretch",
-  },
+  desc: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, lineHeight: 18, padding: 14, paddingBottom: 4 },
+  addrRow: { flexDirection: "row", paddingHorizontal: 14, paddingBottom: 14, gap: 8, alignItems: "stretch" },
   addrChip: {
     flex: 1,
     backgroundColor: "#000",
@@ -611,42 +436,15 @@ const vault = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  addrLabel: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 2,
-  },
-  addr: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 1,
-    marginTop: 2,
-  },
+  addrLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, letterSpacing: 2 },
+  addr: { color: C.parchment, fontFamily: MONO, fontSize: 14, fontWeight: "700", letterSpacing: 1, marginTop: 2 },
   copyBtn: {
     backgroundColor: C.red,
     paddingHorizontal: 14,
     justifyContent: "center",
     alignItems: "center",
   },
-  copyTxt: {
-    color: "#fff",
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "900",
-  },
-  bottomTape: {
-    backgroundColor: "#1a1100",
-    paddingVertical: 6,
-    alignItems: "center",
-  },
-  bottomTxt: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 3,
-  },
+  copyTxt: { color: "#fff", fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "900" },
+  bottomTape: { backgroundColor: "#1a1100", paddingVertical: 6, alignItems: "center" },
+  bottomTxt: { color: C.amber, fontFamily: MONO, fontSize: 9, letterSpacing: 3 },
 });

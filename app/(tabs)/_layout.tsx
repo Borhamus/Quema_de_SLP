@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { View, Platform } from "react-native";
 
 const C = {
   bg: "#000",
@@ -13,11 +13,7 @@ const C = {
   border: "#1a0008",
 };
 
-const MONO = Platform.select({
-  ios: "Menlo",
-  android: "monospace",
-  default: "monospace",
-});
+const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
 
 export default function TabLayout() {
   return (
@@ -52,45 +48,35 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "HOME",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="game-controller" size={size} color={color} />
-            ),
+            tabBarIcon: ({ color, size }) => <Ionicons name="game-controller" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="milestone"
           options={{
             title: "GOAL",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="flag" size={size} color={color} />
-            ),
+            tabBarIcon: ({ color, size }) => <Ionicons name="flag" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
             title: "1P",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person" size={size} color={color} />
-            ),
+            tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="swap"
           options={{
             title: "SWAP",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="swap-horizontal" size={size} color={color} />
-            ),
+            tabBarIcon: ({ color, size }) => <Ionicons name="swap-horizontal" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
           name="special"
           options={{
             title: "BOSS",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="skull" size={size} color={color} />
-            ),
+            tabBarIcon: ({ color, size }) => <Ionicons name="skull" size={size} color={color} />,
           }}
         />
       </Tabs>

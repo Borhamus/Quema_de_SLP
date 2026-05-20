@@ -5,7 +5,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -24,28 +25,16 @@ const C = {
   ok: "#00ff66",
 };
 
-const MONO = Platform.select({
-  ios: "Menlo",
-  android: "monospace",
-  default: "monospace",
-});
+const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
 
 function useBlink(period = 900) {
   const v = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(v, {
-          toValue: 0.2,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-        Animated.timing(v, {
-          toValue: 1,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-      ]),
+        Animated.timing(v, { toValue: 0.2, duration: period / 2, useNativeDriver: true }),
+        Animated.timing(v, { toValue: 1, duration: period / 2, useNativeDriver: true }),
+      ])
     );
     loop.start();
     return () => loop.stop();
@@ -58,17 +47,9 @@ function usePulse(period = 2200) {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(v, {
-          toValue: 1,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-        Animated.timing(v, {
-          toValue: 0,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-      ]),
+        Animated.timing(v, { toValue: 1, duration: period / 2, useNativeDriver: true }),
+        Animated.timing(v, { toValue: 0, duration: period / 2, useNativeDriver: true }),
+      ])
     );
     loop.start();
     return () => loop.stop();
@@ -118,14 +99,7 @@ function PixelBlackHole({ size = 110 }: { size?: number }) {
     { d: 8, c: C.amber },
   ];
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       {rings.map((r, i) => (
         <View
           key={i}
@@ -158,9 +132,7 @@ function HudBar() {
       <Text style={hud.hp}>
         HP <Text style={{ color: C.red }}>████░</Text> 1P
       </Text>
-      <Animated.Text style={[hud.rec, { opacity: blink }]}>
-        ● SWAP ROOM
-      </Animated.Text>
+      <Animated.Text style={[hud.rec, { opacity: blink }]}>● SWAP ROOM</Animated.Text>
       <Text style={hud.hi}>CH-02</Text>
     </View>
   );
@@ -171,17 +143,11 @@ export default function SwapScreen() {
   const isSwapOpen = false; // Cambia a true para ver la interfaz de swap
   const blink = useBlink(1100);
   const pulse = usePulse(2200);
-  const pulseOpacity = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.35, 0.9],
-  });
+  const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] });
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <HudBar />
 
         {!isSwapOpen ? (
@@ -197,9 +163,7 @@ export default function SwapScreen() {
             <View style={curtain.panel}>
               {/* Top tape */}
               <View style={curtain.tape}>
-                <Animated.Text style={[curtain.tapeTxt, { opacity: blink }]}>
-                  ⚠ DO NOT ENTER ⚠
-                </Animated.Text>
+                <Animated.Text style={[curtain.tapeTxt, { opacity: blink }]}>⚠ DO NOT ENTER ⚠</Animated.Text>
               </View>
 
               {/* Padlock + diagonal stripes */}
@@ -215,9 +179,7 @@ export default function SwapScreen() {
                     />
                   ))}
                 </View>
-                <Animated.View
-                  style={[curtain.lockGlow, { opacity: pulseOpacity }]}
-                />
+                <Animated.View style={[curtain.lockGlow, { opacity: pulseOpacity }]} />
                 <PixelPadlock size={104} />
               </View>
 
@@ -233,8 +195,7 @@ export default function SwapScreen() {
                 <Text style={info.headTxt}>▸ EVENT SCHEDULE</Text>
               </View>
               <Text style={info.desc}>
-                El intercambio de Axies se habilitará automáticamente al
-                finalizar la fase de venta de tickets.
+                El intercambio de Axies se habilitará automáticamente al finalizar la fase de venta de tickets.
               </Text>
 
               {/* Countdown placeholder */}
@@ -243,16 +204,12 @@ export default function SwapScreen() {
                   <Text style={info.timerNum}>72</Text>
                   <Text style={info.timerLbl}>HRS</Text>
                 </View>
-                <Animated.Text style={[info.colon, { opacity: blink }]}>
-                  :
-                </Animated.Text>
+                <Animated.Text style={[info.colon, { opacity: blink }]}>:</Animated.Text>
                 <View style={info.timerBox}>
                   <Text style={info.timerNum}>00</Text>
                   <Text style={info.timerLbl}>MIN</Text>
                 </View>
-                <Animated.Text style={[info.colon, { opacity: blink }]}>
-                  :
-                </Animated.Text>
+                <Animated.Text style={[info.colon, { opacity: blink }]}>:</Animated.Text>
                 <View style={info.timerBox}>
                   <Text style={info.timerNum}>00</Text>
                   <Text style={info.timerLbl}>SEC</Text>
@@ -306,9 +263,7 @@ export default function SwapScreen() {
 
             <View style={list.empty}>
               <Text style={list.emptyTitle}>▣ INVENTORY EMPTY</Text>
-              <Text style={list.emptySub}>
-                Conectá tu wallet para listar tus Axies
-              </Text>
+              <Text style={list.emptySub}>Conectá tu wallet para listar tus Axies</Text>
             </View>
           </>
         )}
@@ -324,13 +279,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   scroll: { padding: 16, paddingTop: 8, paddingBottom: 60 },
   titleWrap: { alignItems: "center", marginTop: 8, marginBottom: 18 },
-  coin: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 3,
-    marginBottom: 6,
-  },
+  coin: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 3, marginBottom: 6 },
   title: {
     color: C.parchment,
     fontFamily: MONO,
@@ -359,13 +308,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionDot: { width: 8, height: 8, backgroundColor: C.red },
-  sectionTitle: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  sectionTitle: { color: C.parchment, fontFamily: MONO, fontSize: 12, letterSpacing: 2, fontWeight: "700" },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.redDark },
 });
 
@@ -379,38 +322,16 @@ const hud = StyleSheet.create({
     borderBottomColor: C.redDark,
     marginBottom: 4,
   },
-  hp: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 1.2,
-  },
+  hp: { color: C.parchment, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
   rec: { color: C.red, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5 },
   hi: { color: C.amber, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
 });
 
 const curtain = StyleSheet.create({
-  panel: {
-    borderWidth: 2,
-    borderColor: C.red,
-    backgroundColor: C.ink,
-    marginBottom: 18,
-  },
+  panel: { borderWidth: 2, borderColor: C.red, backgroundColor: C.ink, marginBottom: 18 },
   tape: { backgroundColor: C.red, paddingVertical: 6, alignItems: "center" },
-  tapeTxt: {
-    color: "#fff",
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 4,
-    fontWeight: "900",
-  },
-  tapeTxt2: {
-    color: "#fff",
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 3,
-    fontWeight: "900",
-  },
+  tapeTxt: { color: "#fff", fontFamily: MONO, fontSize: 12, letterSpacing: 4, fontWeight: "900" },
+  tapeTxt2: { color: "#fff", fontFamily: MONO, fontSize: 11, letterSpacing: 3, fontWeight: "900" },
   body: {
     height: 200,
     justifyContent: "center",
@@ -430,18 +351,8 @@ const curtain = StyleSheet.create({
 
 const info = StyleSheet.create({
   card: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink },
-  head: {
-    backgroundColor: "#1a0008",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  headTxt: {
-    color: C.red,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  head: { backgroundColor: "#1a0008", paddingHorizontal: 12, paddingVertical: 6 },
+  headTxt: { color: C.red, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
   desc: {
     color: C.parchmentDim,
     fontFamily: MONO,
@@ -475,41 +386,14 @@ const info = StyleSheet.create({
     letterSpacing: 2,
     lineHeight: 34,
   },
-  timerLbl: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 2,
-    marginTop: 2,
-  },
-  colon: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 32,
-    fontWeight: "900",
-    paddingHorizontal: 2,
-  },
-  footerTape: {
-    backgroundColor: "#1a0008",
-    paddingVertical: 6,
-    alignItems: "center",
-  },
-  footerTxt: {
-    color: C.red,
-    fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 3,
-    fontWeight: "700",
-  },
+  timerLbl: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, letterSpacing: 2, marginTop: 2 },
+  colon: { color: C.amber, fontFamily: MONO, fontSize: 32, fontWeight: "900", paddingHorizontal: 2 },
+  footerTape: { backgroundColor: "#1a0008", paddingVertical: 6, alignItems: "center" },
+  footerTxt: { color: C.red, fontFamily: MONO, fontSize: 9, letterSpacing: 3, fontWeight: "700" },
 });
 
 const openS = StyleSheet.create({
-  pool: {
-    borderWidth: 2,
-    borderColor: C.amber,
-    backgroundColor: C.ink,
-    marginBottom: 14,
-  },
+  pool: { borderWidth: 2, borderColor: C.amber, backgroundColor: C.ink, marginBottom: 14 },
   poolHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -520,21 +404,10 @@ const openS = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.amberDim,
   },
-  poolHeadTxt: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  poolHeadTxt: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
   dotGreen: { width: 8, height: 8, backgroundColor: C.ok },
   poolBody: { alignItems: "center", paddingBottom: 18 },
-  poolLabel: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 2,
-  },
+  poolLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 2 },
   poolValue: {
     color: C.amber,
     fontFamily: MONO,
@@ -546,42 +419,14 @@ const openS = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
   },
-  poolUnit: {
-    color: C.ok,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 2,
-    marginTop: 4,
-    fontWeight: "700",
-  },
+  poolUnit: { color: C.ok, fontFamily: MONO, fontSize: 10, letterSpacing: 2, marginTop: 4, fontWeight: "700" },
 });
 
 const floor = StyleSheet.create({
-  panel: {
-    borderWidth: 2,
-    borderColor: C.redDark,
-    backgroundColor: C.ink,
-    padding: 14,
-    marginBottom: 14,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  label: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-  },
-  value: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
+  panel: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink, padding: 14, marginBottom: 14 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  label: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, letterSpacing: 2 },
+  value: { color: C.parchment, fontFamily: MONO, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
   bar: { height: 2, backgroundColor: C.red, marginVertical: 10, opacity: 0.5 },
   note: { color: C.red, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5 },
 });
@@ -594,18 +439,6 @@ const list = StyleSheet.create({
     padding: 30,
     alignItems: "center",
   },
-  emptyTitle: {
-    color: C.red,
-    fontFamily: MONO,
-    fontSize: 13,
-    letterSpacing: 3,
-    fontWeight: "900",
-  },
-  emptySub: {
-    color: C.muted,
-    fontFamily: MONO,
-    fontSize: 11,
-    marginTop: 6,
-    letterSpacing: 1,
-  },
+  emptyTitle: { color: C.red, fontFamily: MONO, fontSize: 13, letterSpacing: 3, fontWeight: "900" },
+  emptySub: { color: C.muted, fontFamily: MONO, fontSize: 11, marginTop: 6, letterSpacing: 1 },
 });

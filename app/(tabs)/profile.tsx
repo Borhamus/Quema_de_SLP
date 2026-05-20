@@ -25,11 +25,7 @@ const C = {
   ok: "#00ff66",
 };
 
-const MONO = Platform.select({
-  ios: "Menlo",
-  android: "monospace",
-  default: "monospace",
-});
+const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
 
 // ── HOOK ────────────────────────────────────────────────────────
 function useBlink(period = 900) {
@@ -37,17 +33,9 @@ function useBlink(period = 900) {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(v, {
-          toValue: 0.2,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-        Animated.timing(v, {
-          toValue: 1,
-          duration: period / 2,
-          useNativeDriver: true,
-        }),
-      ]),
+        Animated.timing(v, { toValue: 0.2, duration: period / 2, useNativeDriver: true }),
+        Animated.timing(v, { toValue: 1, duration: period / 2, useNativeDriver: true }),
+      ])
     );
     loop.start();
     return () => loop.stop();
@@ -179,9 +167,7 @@ function HudBar() {
       <Text style={hud.hp}>
         HP <Text style={{ color: C.red }}>████░</Text> 1P
       </Text>
-      <Animated.Text style={[hud.rec, { opacity: blink }]}>
-        ● PLAYER LOG
-      </Animated.Text>
+      <Animated.Text style={[hud.rec, { opacity: blink }]}>● PLAYER LOG</Animated.Text>
       <Text style={hud.hi}>SLOT 01</Text>
     </View>
   );
@@ -247,10 +233,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <HudBar />
 
         {/* Player card header */}
@@ -298,9 +281,7 @@ export default function ProfileScreen() {
           </View>
           <View style={tk.body}>
             <View style={tk.counterCol}>
-              <Text style={tk.bigNum}>
-                {String(ticketsCount).padStart(2, "0")}
-              </Text>
+              <Text style={tk.bigNum}>{String(ticketsCount).padStart(2, "0")}</Text>
               <Text style={tk.bigLabel}>TICKETS</Text>
             </View>
             <View style={tk.divider} />
@@ -312,9 +293,7 @@ export default function ProfileScreen() {
                     key={i}
                     style={[
                       tk.progressSeg,
-                      i < yearProgress
-                        ? { backgroundColor: C.amber }
-                        : { backgroundColor: "#1a0a0a" },
+                      i < yearProgress ? { backgroundColor: C.amber } : { backgroundColor: "#1a0a0a" },
                     ]}
                   />
                 ))}
@@ -382,23 +361,14 @@ export default function ProfileScreen() {
             <PixelKey size={36} />
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={mint.title}>MINTEAR LLAVE 2024</Text>
-              <Text style={mint.sub}>
-                Necesitás 12/12 tickets para forjar tu llave anual
-              </Text>
+              <Text style={mint.sub}>Necesitás 12/12 tickets para forjar tu llave anual</Text>
             </View>
           </View>
           <View style={mint.lock}>
-            <Text style={mint.lockTxt}>
-              ⚠ REQUIRES {yearGoal}/{yearGoal} MESES
-            </Text>
+            <Text style={mint.lockTxt}>⚠ REQUIRES {yearGoal}/{yearGoal} MESES</Text>
           </View>
           <View style={{ marginTop: 10 }}>
-            <ArcadeButton
-              label="MINTEAR LLAVE"
-              sub="Bloqueado"
-              color="dark"
-              disabled
-            />
+            <ArcadeButton label="MINTEAR LLAVE" sub="Bloqueado" color="dark" disabled />
           </View>
         </View>
 
@@ -420,20 +390,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionDot: { width: 8, height: 8, backgroundColor: C.red },
-  sectionTitle: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  sectionTitle: { color: C.parchment, fontFamily: MONO, fontSize: 12, letterSpacing: 2, fontWeight: "700" },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.redDark },
-  sectionCount: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 1.5,
-  },
+  sectionCount: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 1.5 },
 });
 
 const hud = StyleSheet.create({
@@ -446,12 +405,7 @@ const hud = StyleSheet.create({
     borderBottomColor: C.redDark,
     marginBottom: 12,
   },
-  hp: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 1.2,
-  },
+  hp: { color: C.parchment, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
   rec: { color: C.red, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5 },
   hi: { color: C.amber, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
 });
@@ -465,59 +419,20 @@ const card = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  idStripTxt: {
-    color: "#fff",
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 3,
-    fontWeight: "900",
-  },
-  idStripCode: {
-    color: "#fff",
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    fontWeight: "700",
-  },
-  playerBody: {
-    flexDirection: "row",
-    padding: 16,
-    alignItems: "center",
-    gap: 14,
-  },
+  idStripTxt: { color: "#fff", fontFamily: MONO, fontSize: 11, letterSpacing: 3, fontWeight: "900" },
+  idStripCode: { color: "#fff", fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, fontWeight: "700" },
+  playerBody: { flexDirection: "row", padding: 16, alignItems: "center", gap: 14 },
   avatar: {
     borderWidth: 2,
     borderColor: C.redDark,
     padding: 6,
     backgroundColor: "#000",
   },
-  playerName: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  playerSub: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-  },
+  playerName: { color: C.parchment, fontFamily: MONO, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
+  playerSub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, marginTop: 4 },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
   statusDot: { width: 8, height: 8 },
-  statusTxt: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  statusTxt: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 2, fontWeight: "700" },
   connectWrap: { padding: 12, paddingTop: 0 },
 });
 
@@ -532,19 +447,8 @@ const btn = StyleSheet.create({
   },
   icon: { width: 32, alignItems: "center" },
   iconTxt: { color: "#fff", fontFamily: MONO, fontSize: 20, fontWeight: "900" },
-  label: {
-    fontFamily: MONO,
-    fontSize: 14,
-    letterSpacing: 2,
-    fontWeight: "900",
-  },
-  sub: {
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 0.5,
-    marginTop: 2,
-    opacity: 0.85,
-  },
+  label: { fontFamily: MONO, fontSize: 14, letterSpacing: 2, fontWeight: "900" },
+  sub: { fontFamily: MONO, fontSize: 10, letterSpacing: 0.5, marginTop: 2, opacity: 0.85 },
   arrow: { fontFamily: MONO, fontSize: 18, fontWeight: "900" },
 });
 
@@ -559,25 +463,10 @@ const tk = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.amberDim,
   },
-  tapeTxt: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  tapeMonth: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-  },
+  tapeTxt: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
+  tapeMonth: { color: C.parchment, fontFamily: MONO, fontSize: 11, letterSpacing: 2 },
   body: { flexDirection: "row", padding: 16, gap: 14, alignItems: "center" },
-  counterCol: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
+  counterCol: { alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
   bigNum: {
     color: C.amber,
     fontFamily: MONO,
@@ -589,73 +478,21 @@ const tk = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
   },
-  bigLabel: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 3,
-    marginTop: 2,
-  },
-  divider: {
-    width: 1,
-    alignSelf: "stretch",
-    backgroundColor: C.redDark,
-    marginHorizontal: 4,
-  },
-  miniLabel: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 9,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
+  bigLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 3, marginTop: 2 },
+  divider: { width: 1, alignSelf: "stretch", backgroundColor: C.redDark, marginHorizontal: 4 },
+  miniLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, letterSpacing: 2, marginBottom: 6 },
   progressRow: { flexDirection: "row", gap: 3 },
   progressSeg: { flex: 1, height: 16, borderWidth: 1, borderColor: C.redDark },
-  progressTxt: {
-    fontFamily: MONO,
-    fontSize: 12,
-    letterSpacing: 1.5,
-    marginTop: 8,
-    fontWeight: "700",
-  },
+  progressTxt: { fontFamily: MONO, fontSize: 12, letterSpacing: 1.5, marginTop: 8, fontWeight: "700" },
   buyWrap: { padding: 12, paddingTop: 0 },
 });
 
 const bag = StyleSheet.create({
-  panel: {
-    borderWidth: 2,
-    borderColor: C.redDark,
-    backgroundColor: C.ink,
-    padding: 12,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "center",
-  },
-  emptyMsg: {
-    alignItems: "center",
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: C.redDark,
-  },
-  emptyTxt: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 13,
-    letterSpacing: 3,
-    fontWeight: "900",
-    marginTop: 10,
-  },
-  emptySub: {
-    color: C.muted,
-    fontFamily: MONO,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    marginTop: 4,
-  },
+  panel: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink, padding: 12 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
+  emptyMsg: { alignItems: "center", marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.redDark },
+  emptyTxt: { color: C.parchment, fontFamily: MONO, fontSize: 13, letterSpacing: 3, fontWeight: "900", marginTop: 10 },
+  emptySub: { color: C.muted, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, marginTop: 4 },
 });
 
 const empty = StyleSheet.create({
@@ -672,27 +509,10 @@ const empty = StyleSheet.create({
 });
 
 const mint = StyleSheet.create({
-  panel: {
-    borderWidth: 2,
-    borderColor: C.redDark,
-    backgroundColor: C.ink,
-    padding: 14,
-  },
+  panel: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink, padding: 14 },
   row: { flexDirection: "row", alignItems: "center" },
-  title: {
-    color: C.parchment,
-    fontFamily: MONO,
-    fontSize: 14,
-    fontWeight: "900",
-    letterSpacing: 2,
-  },
-  sub: {
-    color: C.parchmentDim,
-    fontFamily: MONO,
-    fontSize: 11,
-    marginTop: 4,
-    lineHeight: 16,
-  },
+  title: { color: C.parchment, fontFamily: MONO, fontSize: 14, fontWeight: "900", letterSpacing: 2 },
+  sub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, marginTop: 4, lineHeight: 16 },
   lock: {
     marginTop: 12,
     backgroundColor: "#1a0008",
@@ -701,11 +521,5 @@ const mint = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  lockTxt: {
-    color: C.red,
-    fontFamily: MONO,
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
+  lockTxt: { color: C.red, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
 });
