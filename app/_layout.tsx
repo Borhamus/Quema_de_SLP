@@ -1,27 +1,19 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import "react-native-reanimated";
-
-import { useColorScheme } from "@/hooks/use-color-scheme";
-
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
+import { Stack } from 'expo-router';
+import { DarkTheme, ThemeProvider } from 'expo-router/react-navigation';
+import { StatusBar } from 'expo-status-bar';
+import 'react-native-reanimated';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <ThemeProvider value={DarkTheme}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="ritual/index" options={{ headerShown: true, headerTitle: 'Todos los Rituales', headerStyle: { backgroundColor: '#0b0000' }, headerTintColor: '#CC0000', headerTitleStyle: { fontSize: 14, letterSpacing: 1 } }} />
+        <Stack.Screen name="ritual/[id]/index" options={{ headerShown: true, headerTitle: 'Ritual', headerStyle: { backgroundColor: '#0b0000' }, headerTintColor: '#CC0000' }} />
+        <Stack.Screen name="ritual/[id]/participants" options={{ headerShown: true, headerTitle: 'Participantes', headerStyle: { backgroundColor: '#0b0000' }, headerTintColor: '#CC0000' }} />
+        <Stack.Screen name="ritual/[id]/axies" options={{ headerShown: true, headerTitle: 'Axies Liberados', headerStyle: { backgroundColor: '#0b0000' }, headerTintColor: '#CC0000' }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </ThemeProvider>
   );
 }

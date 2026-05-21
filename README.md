@@ -1,10 +1,10 @@
-# 🔥 Evento de Quema de SLP — App Móvil
+#  Evento de Quema de SLP — App Móvil
 
 Una aplicación móvil multiplataforma (iOS/Android) desarrollada con **React Native + Expo**, orientada al ecosistema de **Axie Infinity** en la red **Ronin**. Su objetivo es crear un mecanismo deflacionario mensual donde la comunidad puede comprar tickets, participar en sorteos, intercambiar Axies y contribuir activamente a la quema de SLP.
 
 ---
 
-## 🎯 ¿Qué es esto?
+##  ¿Qué es esto?
 
 La economía de Axie Infinity enfrenta dos problemas estructurales:
 
@@ -15,7 +15,7 @@ Esta app introduce un **evento mensual de 72 horas** que actúa como un "agujero
 
 ---
 
-## ⚙️ ¿Cómo funciona el sistema?
+##  ¿Cómo funciona el sistema?
 
 ### 1. Compra de Tickets (ventana de 72 hs)
 
@@ -47,9 +47,9 @@ Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave A
 
 ---
 
-## 🗺️ Roadmap
+##  Roadmap
 
-### ✅ Estado Actual (Pre-V1)
+###  Estado Actual (Pre-V1)
 
 - Estructura base de navegación con Expo Router (5 tabs)
 - Pantallas creadas: Home, Milestone, Perfil, Swap, Especial
@@ -62,7 +62,7 @@ Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave A
 
 ---
 
-### 🎨 V1 — Maqueta Visual (Frontend Completo)
+###  V1 — Maqueta Visual (Frontend Completo)
 
 **Objetivo:** que la app se vea exactamente como queremos, con navegación fluida y datos simulados realistas. Sin integración real con ninguna API o blockchain.
 
@@ -80,7 +80,7 @@ Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave A
 
 ---
 
-### 🔌 V2 — Integración de APIs y Funcionalidades
+###  V2 — Integración de APIs y Funcionalidades
 
 **Objetivo:** conectar la maqueta con datos reales. La app consume APIs externas y el usuario puede interactuar con su wallet, pero sin smart contracts en producción (se usa testnet).
 
@@ -103,7 +103,7 @@ Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave A
 
 ---
 
-### 🧪 V3 — Beta Funcional (Testnet)
+###  V3 — Beta Funcional (Testnet)
 
 **Objetivo:** versión casi completa funcionando en la testnet de Ronin (Saigon). Permite probar el flujo completo sin dinero real.
 
@@ -125,7 +125,7 @@ Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave A
 
 ---
 
-## 🧱 Stack Técnico
+##  Stack Técnico
 
 | Capa              | Tecnología                               |
 | ----------------- | ---------------------------------------- |
@@ -142,7 +142,7 @@ Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave A
 
 ---
 
-## 📁 Estructura del Proyecto
+##  Estructura del Proyecto
 
 ```
 app/
@@ -169,7 +169,7 @@ hooks/
 
 ---
 
-## 📋 Requerimientos Funcionales Clave
+##  Requerimientos Funcionales Clave
 
 | ID            | Descripción                                                                | Versión |
 | ------------- | -------------------------------------------------------------------------- | ------- |
@@ -182,7 +182,7 @@ hooks/
 
 ---
 
-## 🚀 Setup — Primera vez en una PC nueva
+##  Setup — Primera vez en una PC nueva
 
 ### Prerequisitos
 
@@ -228,7 +228,7 @@ Una vez que corre `npx expo start`, la terminal muestra un **QR code** y un men�
    - **iOS:** con la cámara nativa, que detecta el QR automáticamente
 4. La app se abre en Expo Go. Cada vez que guardes un archivo, se recarga automáticamente (Fast Refresh)
 
-> ⚠️ Si el QR no conecta, probá presionar `s` en la terminal para cambiar a **Expo tunnel** (funciona aunque estén en redes distintas, pero es más lento).
+>  Si el QR no conecta, probá presionar `s` en la terminal para cambiar a **Expo tunnel** (funciona aunque estén en redes distintas, pero es más lento).
 
 ---
 
@@ -273,6 +273,6 @@ npx expo start
 
 ---
 
-## 👥 Equipo
+##  Equipo
 
 Proyecto universitario — Facultad de [nombre de la facultad].
