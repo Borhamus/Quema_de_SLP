@@ -275,4 +275,4 @@ npx expo start
 
 ##  Equipo
 
-Proyecto universitario — Facultad de [nombre de la facultad].
+Proyecto universitario — Alumno: Franco Joaquín Gómez.
