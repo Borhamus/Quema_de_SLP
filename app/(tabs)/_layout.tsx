@@ -1,7 +1,6 @@
-import { Tabs } from "expo-router";
-import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { View, Platform } from "react-native";
+import { Tabs } from "expo-router";
+import { Platform, View } from "react-native";
 
 const C = {
   bg: "#000",
@@ -75,8 +74,8 @@ export default function TabLayout() {
         <Tabs.Screen
           name="special"
           options={{
-            title: "BOSS",
-            tabBarIcon: ({ color, size }) => <Ionicons name="skull" size={size} color={color} />,
+            title: "EVENTO ANUAL",
+            tabBarIcon: ({ color, size }) => <Ionicons name="key" size={size} color={color} />,
           }}
         />
       </Tabs>

@@ -1,19 +1,27 @@
 /**
  * app/(tabs)/profile.tsx
- * Pantalla de perfil con login via Ronin Wallet (extensión directa)
+ * Pantalla de perfil — wallet, tickets NFT reales, llaves anuales con QR.
+ * 100% conectado a Supabase. Identidad = wallet_address directo.
  */
-import React, { useEffect, useRef } from "react";
+import { useWallet } from "@/contexts/wallet-context";
+import { fmtSlp, usdToSlp, useSlpPrice } from "@/hooks/use-slp-price";
+import { useWalletProfile } from "@/hooks/use-wallet-profile";
+import { supabase } from "@/lib/supabase";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Image,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useWallet } from "@/contexts/wallet-context";
 
 // ── ARCADE PALETTE ──────────────────────────────────────────────
 const C = {
@@ -31,6 +39,38 @@ const C = {
 };
 
 const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
+
+// ── TIPOS ────────────────────────────────────────────────────────
+type TicketRow = {
+  id: string;
+  qr_code: string;
+  status: "vivo" | "usado" | "evento-finalizado";
+  purchased_at: string;
+  event_number: number;
+  event_label: string;
+};
+
+type AnnualKeyRow = {
+  id: string;
+  year: number;
+  status: "vivo" | "usado" | "quemada";
+  minted_at: string;
+};
+
+type ActiveEvent = {
+  id: string;
+  event_number: number;
+  status: string;
+  ticket_price_usd: number;
+};
+
+type ShopItem = {
+  id: string;
+  type: "avatar" | "frame" | "banner";
+  name: string;
+  image_url: string;
+  price_slp: number;
+};
 
 // ── HOOKS ───────────────────────────────────────────────────────
 function useBlink(period = 900) {
@@ -69,9 +109,9 @@ function PixelWallet({ size = 60 }: { size?: number }) {
   );
 }
 
-function PixelTicket({ size = 56 }: { size?: number }) {
+function PixelTicket({ size = 56, dim = false }: { size?: number; dim?: boolean }) {
   const p = size / 8;
-  const a = C.amber; const d = C.amberDim; const k = "transparent";
+  const a = dim ? C.muted : C.amber; const d = dim ? C.muted : C.amberDim; const k = "transparent";
   const map = [
     [k,a,a,a,a,a,a,k],[a,d,d,d,d,d,d,a],[a,d,a,a,a,a,d,a],[k,d,a,k,k,a,d,k],
     [k,d,a,k,k,a,d,k],[a,d,a,a,a,a,d,a],[a,d,d,d,d,d,d,a],[k,a,a,a,a,a,a,k],
@@ -123,8 +163,8 @@ function PixelBag({ size = 64 }: { size?: number }) {
   );
 }
 
-// ── COMPONENTS ──────────────────────────────────────────────────
-function HudBar({ address }: { address?: string }) {
+// ── COMPONENTS BASE ─────────────────────────────────────────────
+function HudBar({ address }: { address?: string | null }) {
   const blink = useBlink(700);
   return (
     <View style={hud.row}>
@@ -139,13 +179,14 @@ function ArcadeButton({
   label, sub, onPress, color = "red", disabled = false, icon, loading = false,
 }: {
   label: string; sub?: string; onPress?: () => void;
-  color?: "red" | "amber" | "dark"; disabled?: boolean;
+  color?: "red" | "amber" | "dark" | "green"; disabled?: boolean;
   icon?: React.ReactNode; loading?: boolean;
 }) {
   const palette = {
     red:   { bg: C.red,      border: "#fff",      text: "#fff" },
     amber: { bg: C.amber,    border: "#000",      text: "#000" },
     dark:  { bg: "#1a0008",  border: C.redDark,   text: C.parchmentDim },
+    green: { bg: C.ok,       border: "#000",      text: "#000" },
   }[color];
 
   return (
@@ -169,14 +210,6 @@ function ArcadeButton({
   );
 }
 
-function EmptySlot() {
-  return (
-    <View style={empty.slot}>
-      <Text style={empty.dash}>━ ━ ━</Text>
-    </View>
-  );
-}
-
 function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
     <TouchableOpacity onPress={onDismiss} style={err.wrap}>
@@ -192,59 +225,486 @@ function shortAddress(address: string) {
   return `${address.slice(0, 8)}...${address.slice(-6)}`;
 }
 
+// ── TICKET STATUS BADGE ─────────────────────────────────────────
+function ticketStatusInfo(status: TicketRow["status"]) {
+  if (status === "vivo") return { label: "VIVO", color: C.ok, desc: "Participa en sorteos" };
+  if (status === "usado") return { label: "USADO", color: C.amber, desc: "Ya ganó una reward" };
+  return { label: "EVENTO FINALIZADO", color: C.muted, desc: "Cuenta para Llave Anual" };
+}
+
+// ── TICKET CARD ──────────────────────────────────────────────────
+function TicketCard({ ticket }: { ticket: TicketRow }) {
+  const info = ticketStatusInfo(ticket.status);
+  return (
+    <View style={[tkc.card, { borderColor: info.color + "70" }]}>
+      <View style={tkc.iconCol}>
+        <PixelTicket size={36} dim={ticket.status !== "vivo"} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={tkc.eventName}>Ritual #{ticket.event_number} — {ticket.event_label}</Text>
+        <Text style={tkc.qr}>{ticket.qr_code}</Text>
+        <Text style={[tkc.statusTxt, { color: info.color }]}>● {info.label}</Text>
+        <Text style={tkc.statusDesc}>{info.desc}</Text>
+      </View>
+    </View>
+  );
+}
+const tkc = StyleSheet.create({
+  card: { flexDirection: "row", gap: 12, borderWidth: 1.5, backgroundColor: C.ink, padding: 10, marginBottom: 8, alignItems: "center" },
+  iconCol: { width: 44, alignItems: "center" },
+  eventName: { color: C.parchment, fontFamily: MONO, fontSize: 11, fontWeight: "700" },
+  qr: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, marginTop: 2 },
+  statusTxt: { fontFamily: MONO, fontSize: 9, fontWeight: "900", marginTop: 4, letterSpacing: 0.5 },
+  statusDesc: { color: C.muted, fontFamily: MONO, fontSize: 8, marginTop: 1 },
+});
+
+// ── ANNUAL KEY CARD + QR MODAL ──────────────────────────────────
+function AnnualKeyCard({ keyRow, onPressQr }: { keyRow: AnnualKeyRow; onPressQr: () => void }) {
+  const isUsed = keyRow.status !== "vivo";
+  return (
+    <View style={[kc.card, { borderColor: isUsed ? C.muted : C.amber }]}>
+      <View style={kc.iconCol}>
+        <PixelKey size={26} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={kc.title}>LLAVE ANUAL {keyRow.year}</Text>
+        <Text style={[kc.status, { color: isUsed ? C.muted : C.ok }]}>
+          {isUsed ? `● ${keyRow.status.toUpperCase()}` : "● LISTA PARA USAR"}
+        </Text>
+      </View>
+      <TouchableOpacity onPress={onPressQr} style={kc.qrBtn} disabled={isUsed}>
+        <Text style={[kc.qrBtnTxt, isUsed && { opacity: 0.4 }]}>▦ QR</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+const kc = StyleSheet.create({
+  card: { flexDirection: "row", gap: 12, borderWidth: 1.5, backgroundColor: C.ink, padding: 10, marginBottom: 8, alignItems: "center" },
+  iconCol: { width: 36, alignItems: "center" },
+  title: { color: C.amber, fontFamily: MONO, fontSize: 12, fontWeight: "900", letterSpacing: 1 },
+  status: { fontFamily: MONO, fontSize: 9, fontWeight: "700", marginTop: 3 },
+  qrBtn: { borderWidth: 1.5, borderColor: C.amber, paddingHorizontal: 10, paddingVertical: 8 },
+  qrBtnTxt: { color: C.amber, fontFamily: MONO, fontSize: 11, fontWeight: "900" },
+});
+
+function KeyQrModal({ visible, keyRow, onClose }: { visible: boolean; keyRow: AnnualKeyRow | null; onClose: () => void }) {
+  if (!keyRow) return null;
+  // El QR codifica el ID de la llave — esto es lo que /special va a leer
+  // para "consumirla" en el evento anual.
+  const qrValue = `FYNOLTS-ANNUAL-KEY:${keyRow.id}`;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={qm.overlay}>
+        <View style={qm.box}>
+          <Text style={qm.title}>LLAVE ANUAL {keyRow.year}</Text>
+          <Text style={qm.sub}>Mostrá este QR en el Evento Anual para participar</Text>
+
+          <View style={qm.qrWrap}>
+            <QRCode value={qrValue} size={200} backgroundColor="#fff" color="#000" />
+          </View>
+
+          <Text style={qm.idTxt} numberOfLines={1}>{keyRow.id}</Text>
+
+          <TouchableOpacity onPress={onClose} style={qm.closeBtn}>
+            <Text style={qm.closeTxt}>CERRAR</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+const qm = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", alignItems: "center", padding: 24 },
+  box: { backgroundColor: C.ink, borderWidth: 2, borderColor: C.amber, padding: 24, alignItems: "center", width: "100%", maxWidth: 320 },
+  title: { color: C.amber, fontFamily: MONO, fontSize: 16, fontWeight: "900", letterSpacing: 1 },
+  sub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, textAlign: "center", marginTop: 6, marginBottom: 18 },
+  qrWrap: { padding: 16, backgroundColor: "#fff" },
+  idTxt: { color: C.muted, fontFamily: MONO, fontSize: 8, marginTop: 14, maxWidth: 260 },
+  closeBtn: { marginTop: 18, borderWidth: 1.5, borderColor: C.red, paddingHorizontal: 24, paddingVertical: 10 },
+  closeTxt: { color: C.red, fontFamily: MONO, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
+});
+
+// ── AVATAR (tocable) ─────────────────────────────────────────────
+function ProfileAvatar({ avatarUrl, onPress }: { avatarUrl: string | null; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={av.wrap}>
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={av.img} />
+      ) : (
+        <PixelWallet size={56} />
+      )}
+      <View style={av.editBadge}>
+        <Text style={av.editBadgeTxt}>✎</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+const av = StyleSheet.create({
+  wrap: { width: 64, height: 64, position: "relative" },
+  img: { width: 64, height: 64, backgroundColor: "#000" },
+  editBadge: { position: "absolute", bottom: -4, right: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: C.amber, borderWidth: 2, borderColor: C.ink, alignItems: "center", justifyContent: "center" },
+  editBadgeTxt: { color: "#000", fontSize: 11, fontWeight: "900" },
+});
+
+// ── AVATAR PICKER MODAL ──────────────────────────────────────────
+function AvatarPickerModal({
+  visible, onClose, currentAvatarId, address, onSaved,
+}: {
+  visible: boolean; onClose: () => void; currentAvatarId: string | null;
+  address: string; onSaved: () => void;
+}) {
+  const [items, setItems] = useState<ShopItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setLoading(true);
+    supabase
+      .from("shop_items")
+      .select("id, type, name, image_url, price_slp")
+      .eq("type", "avatar")
+      .eq("is_active", true)
+      .order("sort_order")
+      .then(({ data }) => {
+        setItems(data ?? []);
+        setLoading(false);
+      });
+  }, [visible]);
+
+  const handleSelect = async (item: ShopItem) => {
+    setSaving(item.id);
+    const { error } = await supabase.rpc("upsert_profile", {
+      p_wallet_address: address,
+      p_avatar_item_id: item.id,
+    });
+    setSaving(null);
+    if (!error) {
+      onSaved();
+      onClose();
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={qm.overlay}>
+        <View style={[qm.box, { maxWidth: 360 }]}>
+          <Text style={qm.title}>ELEGIR AVATAR</Text>
+          <Text style={qm.sub}>Tocá uno para usarlo en tu perfil</Text>
+
+          {loading ? (
+            <Text style={{ color: C.parchmentDim, fontFamily: MONO, fontSize: 11, marginVertical: 20 }}>
+              Cargando avatares...
+            </Text>
+          ) : (
+            <View style={ap.grid}>
+              {items.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => handleSelect(item)}
+                  disabled={saving === item.id}
+                  style={[ap.cell, item.id === currentAvatarId && ap.cellSelected]}
+                >
+                  <Image source={{ uri: item.image_url }} style={ap.cellImg} />
+                  {item.id === currentAvatarId && (
+                    <View style={ap.cellCheck}><Text style={ap.cellCheckTxt}>✓</Text></View>
+                  )}
+                  {saving === item.id && (
+                    <View style={ap.cellLoading}><Text style={{ color: C.amber, fontSize: 10 }}>...</Text></View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity onPress={onClose} style={[qm.closeBtn, { marginTop: 18 }]}>
+            <Text style={qm.closeTxt}>CERRAR</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+const ap = StyleSheet.create({
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center", marginTop: 6 },
+  cell: { width: 64, height: 64, borderWidth: 2, borderColor: C.redDark, position: "relative" },
+  cellSelected: { borderColor: C.amber },
+  cellImg: { width: "100%", height: "100%", backgroundColor: "#000" },
+  cellCheck: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 9, backgroundColor: C.ok, alignItems: "center", justifyContent: "center" },
+  cellCheckTxt: { color: "#000", fontSize: 10, fontWeight: "900" },
+  cellLoading: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center" },
+});
+
+// ── EDITOR DE NOMBRE ──────────────────────────────────────────────
+function NameEditor({ value, address, onSaved }: { value: string | null; address: string; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setDraft(value ?? ""); }, [value]);
+
+  const handleSave = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed) { setEditing(false); return; }
+    setSaving(true);
+    const { error } = await supabase.rpc("upsert_profile", {
+      p_wallet_address: address,
+      p_display_name: trimmed,
+    });
+    setSaving(false);
+    setEditing(false);
+    if (!error) onSaved();
+  };
+
+  if (editing) {
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Tu nombre..."
+          placeholderTextColor={C.muted}
+          maxLength={24}
+          autoFocus
+          style={ne.input}
+          onSubmitEditing={handleSave}
+        />
+        <TouchableOpacity onPress={handleSave} disabled={saving}>
+          <Text style={ne.saveTxt}>{saving ? "..." : "✓"}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.7}>
+      <Text style={ne.nameTxt}>{value || "TOCÁ PARA PONERTE UN NOMBRE"} <Text style={ne.pencil}>✎</Text></Text>
+    </TouchableOpacity>
+  );
+}
+const ne = StyleSheet.create({
+  nameTxt: { color: C.parchment, fontFamily: MONO, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
+  pencil: { color: C.amber, fontSize: 13 },
+  input: { flex: 1, borderWidth: 1.5, borderColor: C.amber, color: C.parchment, fontFamily: MONO, fontSize: 14, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "#000" },
+  saveTxt: { color: C.ok, fontSize: 20, fontWeight: "900" },
+});
+
+
+function BuyTicketsModal({
+  visible, onClose, activeEvent, address, slpPrice, onBought,
+}: {
+  visible: boolean; onClose: () => void; activeEvent: ActiveEvent;
+  address: string; slpPrice: number; onBought: () => void;
+}) {
+  const [qty, setQty] = useState("1");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const qtyNum = Math.max(1, Math.min(50, parseInt(qty || "1", 10) || 1));
+  const totalUsd = activeEvent.ticket_price_usd * qtyNum;
+  const totalSlp = usdToSlp(totalUsd, slpPrice);
+
+  const handleBuy = async () => {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      // Compra secuencial — cada ticket es una llamada separada a
+      // buy_ticket() porque cada uno puede disparar su propia subida
+      // de nivel (la función ya maneja eso de forma atómica una vez
+      // por ticket).
+      for (let i = 0; i < qtyNum; i++) {
+        const slpForThisTicket = usdToSlp(activeEvent.ticket_price_usd, slpPrice);
+        const { error: rpcError } = await supabase.rpc("buy_ticket", {
+          p_event_id: activeEvent.id,
+          p_wallet_address: address,
+          p_paid_slp: slpForThisTicket,
+          p_tx_hash: "SIM-TX-" + Date.now() + "-" + i,
+        });
+        if (rpcError) throw rpcError;
+      }
+      setSuccess(`✓ ${qtyNum} ticket${qtyNum > 1 ? "s" : ""} comprado${qtyNum > 1 ? "s" : ""} con éxito.`);
+      onBought();
+    } catch (e: any) {
+      setError(e?.message ?? "Error al comprar el ticket.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={qm.overlay}>
+        <View style={[qm.box, { borderColor: C.red }]}>
+          <Text style={[qm.title, { color: C.red }]}>COMPRAR TICKETS</Text>
+          <Text style={qm.sub}>Elegí cuántos tickets querés comprar</Text>
+
+          <View style={bm.qtyRow}>
+            <TouchableOpacity style={bm.qtyBtn} onPress={() => setQty(String(qtyNum - 1))} disabled={qtyNum <= 1}>
+              <Text style={bm.qtyBtnTxt}>−</Text>
+            </TouchableOpacity>
+            <TextInput
+              value={qty}
+              onChangeText={setQty}
+              keyboardType="numeric"
+              style={bm.qtyInput}
+              maxLength={2}
+            />
+            <TouchableOpacity style={bm.qtyBtn} onPress={() => setQty(String(qtyNum + 1))} disabled={qtyNum >= 50}>
+              <Text style={bm.qtyBtnTxt}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={bm.totalBox}>
+            <Text style={bm.totalLabel}>TOTAL A PAGAR</Text>
+            <Text style={bm.totalSlp}>{fmtSlp(totalSlp)} SLP</Text>
+            <Text style={bm.totalUsd}>(~${totalUsd.toFixed(2)} USD)</Text>
+          </View>
+
+          {error && <Text style={bm.errorTxt}>{error}</Text>}
+          {success && <Text style={bm.successTxt}>{success}</Text>}
+
+          <View style={{ width: "100%", marginTop: 16 }}>
+            <ArcadeButton
+              label={loading ? "COMPRANDO..." : "CONFIRMAR COMPRA"}
+              sub="Simulado — sin transacción on-chain real todavía"
+              color="red"
+              loading={loading}
+              onPress={handleBuy}
+            />
+          </View>
+
+          <TouchableOpacity onPress={onClose} style={[qm.closeBtn, { marginTop: 10 }]}>
+            <Text style={qm.closeTxt}>CERRAR</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+const bm = StyleSheet.create({
+  qtyRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 },
+  qtyBtn: { width: 40, height: 40, borderWidth: 1.5, borderColor: C.red, alignItems: "center", justifyContent: "center" },
+  qtyBtnTxt: { color: C.red, fontSize: 20, fontWeight: "900" },
+  qtyInput: { width: 60, height: 40, borderWidth: 1.5, borderColor: C.parchmentDim, color: C.parchment, fontFamily: MONO, fontSize: 18, textAlign: "center", fontWeight: "900" },
+  totalBox: { alignItems: "center", borderWidth: 1, borderColor: C.amber + "50", padding: 12, width: "100%" },
+  totalLabel: { color: C.muted, fontFamily: MONO, fontSize: 8, letterSpacing: 1.5, marginBottom: 4 },
+  totalSlp: { color: C.amber, fontFamily: MONO, fontSize: 20, fontWeight: "900" },
+  totalUsd: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, marginTop: 2 },
+  errorTxt: { color: C.red, fontFamily: MONO, fontSize: 10, marginTop: 12, textAlign: "center" },
+  successTxt: { color: C.ok, fontFamily: MONO, fontSize: 10, marginTop: 12, textAlign: "center" },
+});
+
 // ── SCREEN ──────────────────────────────────────────────────────
 export default function ProfileScreen() {
   const { address, isConnecting, isVerifying, isAuthenticated, error, connectAndAuthenticate, disconnect, clearError } = useWallet();
+  const { price: slpPrice } = useSlpPrice();
+  const { profile, loading: profileLoading, refetch: refetchProfile } = useWalletProfile(address);
 
-  const tickets: any[] = [];
-  const ticketsCount = 0;
-  const yearProgress = 0;
-  const yearGoal = 12;
-  const eventoActivo = true;
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [annualKeys, setAnnualKeys] = useState<AnnualKeyRow[]>([]);
+  const [activeEvent, setActiveEvent] = useState<ActiveEvent | null>(null);
+  const [selectedKey, setSelectedKey] = useState<AnnualKeyRow | null>(null);
+  const [buyModalOpen, setBuyModalOpen] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 
   const isConnected = isAuthenticated && !!address;
   const isLoading = isConnecting || isVerifying;
 
-  const handleLogin = async () => {
-    await connectAndAuthenticate();
-  };
+  const loadProfileData = useCallback(async () => {
+    if (!address) {
+      setTickets([]);
+      setAnnualKeys([]);
+      return;
+    }
 
-  const handleLogout = () => {
-    disconnect();
-  };
+    const { data: ticketsData } = await supabase
+      .from("tickets")
+      .select("id, qr_code, status, purchased_at, events(event_number, label)")
+      .eq("wallet_address", address)
+      .order("purchased_at", { ascending: false });
+
+    if (ticketsData) {
+      setTickets(
+        ticketsData.map((t: any) => ({
+          id: t.id,
+          qr_code: t.qr_code,
+          status: t.status,
+          purchased_at: t.purchased_at,
+          event_number: t.events?.event_number ?? 0,
+          event_label: t.events?.label ?? "—",
+        }))
+      );
+    }
+
+    const { data: keysData } = await supabase
+      .from("annual_keys")
+      .select("id, year, status, minted_at")
+      .eq("owner_wallet", address)
+      .order("minted_at", { ascending: false });
+
+    setAnnualKeys(keysData ?? []);
+
+    const { data: eventData } = await supabase
+      .from("events")
+      .select("id, event_number, status, ticket_price_usd")
+      .eq("status", "activo")
+      .limit(1)
+      .maybeSingle();
+
+    setActiveEvent(eventData ?? null);
+  }, [address]);
+
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
+
+  // Realtime — tickets/llaves/perfil nuevos se reflejan solos
+  useEffect(() => {
+    if (!address) return;
+    const channel = supabase
+      .channel(`profile-live-${address}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `wallet_address=eq.${address}` }, () => loadProfileData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "annual_keys", filter: `owner_wallet=eq.${address}` }, () => loadProfileData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `wallet_address=eq.${address}` }, () => refetchProfile())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [address, loadProfileData]);
+
+  const handleLogin = async () => { await connectAndAuthenticate(); };
+  const handleLogout = () => { disconnect(); };
+
+  const currentYear = new Date().getFullYear();
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <HudBar address={address ?? undefined} />
+        <HudBar address={address} />
 
-        {/* Error banner */}
-        {error && (
-          <ErrorBanner message={error} onDismiss={clearError} />
-        )}
+        {error && <ErrorBanner message={error} onDismiss={clearError} />}
 
         {/* Player card */}
         <View style={card.playerWrap}>
           <View style={card.idStrip}>
             <Text style={card.idStripTxt}>★ PLAYER 1 ★</Text>
-            <Text style={card.idStripCode}>
-              {isConnected ? "AUTENTICADO" : "ID :: GUEST-00"}
-            </Text>
+            <Text style={card.idStripCode}>{isConnected ? "AUTENTICADO" : "ID :: GUEST-00"}</Text>
           </View>
 
           <View style={card.playerBody}>
-            <View style={card.avatar}>
-              <PixelWallet size={64} />
-            </View>
+            <ProfileAvatar
+              avatarUrl={profile?.avatar_url ?? null}
+              onPress={() => isConnected && setAvatarPickerOpen(true)}
+            />
             <View style={{ flex: 1 }}>
-              <Text style={card.playerName}>
-                {isConnected ? shortAddress(address!) : "NO CONECTADO"}
-              </Text>
-              <Text style={card.playerSub}>
-                {isConnected
-                  ? address
-                  : "Conectá tu Ronin para empezar"}
-              </Text>
+              {isConnected ? (
+                <NameEditor value={profile?.display_name ?? null} address={address!} onSaved={refetchProfile} />
+              ) : (
+                <Text style={card.playerName}>NO CONECTADO</Text>
+              )}
+              <Text style={card.playerSub}>{isConnected ? address : "Conectá tu Ronin para empezar"}</Text>
               <View style={card.statusRow}>
                 <View style={[card.statusDot, { backgroundColor: isConnected ? C.ok : C.redDim }]} />
                 <Text style={[card.statusTxt, { color: isConnected ? C.ok : C.parchmentDim }]}>
@@ -256,22 +716,9 @@ export default function ProfileScreen() {
 
           <View style={card.connectWrap}>
             {isConnected ? (
-              <ArcadeButton
-                label="DESCONECTAR"
-                sub="Cerrar sesión"
-                color="dark"
-                icon={<Text style={btn.iconTxt}>◈</Text>}
-                onPress={handleLogout}
-              />
+              <ArcadeButton label="DESCONECTAR" sub="Cerrar sesión" color="dark" icon={<Text style={btn.iconTxt}>◈</Text>} onPress={handleLogout} />
             ) : (
-              <ArcadeButton
-                label="INSERT WALLET"
-                sub="Conectar y firmar con Ronin"
-                color="red"
-                icon={<Text style={btn.iconTxt}>◈</Text>}
-                onPress={handleLogin}
-                loading={isLoading}
-              />
+              <ArcadeButton label="INSERT WALLET" sub="Conectar y firmar con Ronin" color="red" icon={<Text style={btn.iconTxt}>◈</Text>} onPress={handleLogin} loading={isLoading} />
             )}
           </View>
         </View>
@@ -282,107 +729,131 @@ export default function ProfileScreen() {
           </Text>
         )}
 
-        {/* Tickets HUD */}
-        <View style={styles.sectionHead}>
-          <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>MIS TICKETS DEL MES</Text>
-          <View style={styles.sectionLine} />
-        </View>
-
-        <View style={tk.panel}>
-          <View style={tk.tape}>
-            <Text style={tk.tapeTxt}>▸ COIN COUNTER</Text>
-            <Text style={tk.tapeMonth}>
-              {new Date().toLocaleString("es-AR", { month: "short", year: "numeric" }).toUpperCase()}
-            </Text>
-          </View>
-          <View style={tk.body}>
-            <View style={tk.counterCol}>
-              <Text style={tk.bigNum}>{String(ticketsCount).padStart(2, "0")}</Text>
-              <Text style={tk.bigLabel}>TICKETS</Text>
+        {/* Comprar tickets */}
+        {isConnected && (
+          <>
+            <View style={styles.sectionHead}>
+              <View style={styles.sectionDot} />
+              <Text style={styles.sectionTitle}>EVENTO ACTIVO</Text>
+              <View style={styles.sectionLine} />
             </View>
-            <View style={tk.divider} />
-            <View style={{ flex: 1 }}>
-              <Text style={tk.miniLabel}>LLAVE ANUAL // PROGRESS</Text>
-              <View style={tk.progressRow}>
-                {Array.from({ length: yearGoal }).map((_, i) => (
-                  <View
-                    key={i}
-                    style={[tk.progressSeg, i < yearProgress
-                      ? { backgroundColor: C.amber }
-                      : { backgroundColor: "#1a0a0a" }
-                    ]}
+
+            {activeEvent ? (
+              <View style={tk.panel}>
+                <View style={tk.tape}>
+                  <Text style={tk.tapeTxt}>▸ RITUAL #{activeEvent.event_number}</Text>
+                  <Text style={tk.tapeMonth}>VENTA ABIERTA</Text>
+                </View>
+                <View style={{ padding: 14 }}>
+                  <ArcadeButton
+                    label="COMPRAR TICKET(S)"
+                    sub={`${fmtSlp(usdToSlp(activeEvent.ticket_price_usd, slpPrice))} SLP c/u · elegí la cantidad`}
+                    color="amber"
+                    icon={<PixelTicket size={28} />}
+                    onPress={() => setBuyModalOpen(true)}
                   />
-                ))}
+                </View>
               </View>
-              <Text style={tk.progressTxt}>
-                <Text style={{ color: C.amber }}>{yearProgress}</Text>
-                <Text style={{ color: C.parchmentDim }}>/{yearGoal} MESES</Text>
-              </Text>
-            </View>
-          </View>
+            ) : (
+              <View style={[tk.panel, { padding: 14 }]}>
+                <Text style={{ color: C.parchmentDim, fontFamily: MONO, fontSize: 11, textAlign: "center" }}>
+                  No hay ningún ritual activo ahora mismo.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
 
-          {eventoActivo && (
-            <View style={tk.buyWrap}>
-              <ArcadeButton
-                label="COMPRAR TICKET"
-                sub="3 USD en SLP · podés comprar más de uno"
-                color="amber"
-                icon={<PixelTicket size={28} />}
-                disabled={!isConnected}
-              />
-            </View>
-          )}
-        </View>
-
-        {/* Bag */}
+        {/* Mis Tickets */}
         <View style={styles.sectionHead}>
           <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>TU BOLSA // INVENTORY</Text>
+          <Text style={styles.sectionTitle}>MIS TICKETS</Text>
           <View style={styles.sectionLine} />
-          <Text style={styles.sectionCount}>{String(tickets.length).padStart(2, "0")}/06</Text>
+          <Text style={styles.sectionCount}>{String(tickets.length).padStart(2, "0")}</Text>
         </View>
 
-        <View style={bag.panel}>
-          <View style={bag.grid}>
-            {Array.from({ length: 6 }).map((_, i) => <EmptySlot key={i} />)}
-          </View>
-          {tickets.length === 0 && (
+        {!isConnected ? (
+          <View style={bag.panel}>
             <View style={bag.emptyMsg}>
               <PixelBag size={48} />
-              <Text style={bag.emptyTxt}>BOLSA VACÍA</Text>
-              <Text style={bag.emptySub}>
-                {isConnected ? "Tus tickets aparecerán acá" : "Conectá tu wallet para ver tus tickets"}
-              </Text>
+              <Text style={bag.emptyTxt}>CONECTÁ TU WALLET</Text>
+              <Text style={bag.emptySub}>Para ver tus tickets acá</Text>
             </View>
-          )}
-        </View>
+          </View>
+        ) : tickets.length === 0 ? (
+          <View style={bag.panel}>
+            <View style={bag.emptyMsg}>
+              <PixelBag size={48} />
+              <Text style={bag.emptyTxt}>SIN TICKETS TODAVÍA</Text>
+              <Text style={bag.emptySub}>Comprá uno arriba cuando haya un ritual activo</Text>
+            </View>
+          </View>
+        ) : (
+          <View>
+            {tickets.map(t => <TicketCard key={t.id} ticket={t} />)}
+          </View>
+        )}
 
-        {/* Mint key */}
+        {/* Mis Llaves */}
         <View style={styles.sectionHead}>
           <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>LLAVE ANUAL</Text>
+          <Text style={styles.sectionTitle}>MIS LLAVES ANUALES</Text>
           <View style={styles.sectionLine} />
+          <Text style={styles.sectionCount}>{String(annualKeys.length).padStart(2, "0")}</Text>
         </View>
 
-        <View style={mint.panel}>
-          <View style={mint.row}>
-            <PixelKey size={36} />
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={mint.title}>MINTEAR LLAVE {new Date().getFullYear()}</Text>
-              <Text style={mint.sub}>Necesitás 12/12 tickets para forjar tu llave anual</Text>
+        {!isConnected ? (
+          <View style={bag.panel}>
+            <View style={bag.emptyMsg}>
+              <PixelKey size={40} />
+              <Text style={bag.emptyTxt}>CONECTÁ TU WALLET</Text>
             </View>
           </View>
-          <View style={mint.lock}>
-            <Text style={mint.lockTxt}>⚠ REQUIRES {yearGoal}/{yearGoal} MESES</Text>
+        ) : annualKeys.length === 0 ? (
+          <View style={mint.panel}>
+            <View style={mint.row}>
+              <PixelKey size={36} />
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={mint.title}>SIN LLAVES TODAVÍA</Text>
+                <Text style={mint.sub}>
+                  Juntá 12 tickets en estado "evento-finalizado", uno de cada mes del {currentYear}, para mintear tu llave desde acá.
+                </Text>
+              </View>
+            </View>
           </View>
-          <View style={{ marginTop: 10 }}>
-            <ArcadeButton label="MINTEAR LLAVE" sub="Bloqueado" color="dark" disabled />
+        ) : (
+          <View>
+            {annualKeys.map(k => (
+              <AnnualKeyCard key={k.id} keyRow={k} onPressQr={() => setSelectedKey(k)} />
+            ))}
           </View>
-        </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <KeyQrModal visible={!!selectedKey} keyRow={selectedKey} onClose={() => setSelectedKey(null)} />
+
+      {address && (
+        <AvatarPickerModal
+          visible={avatarPickerOpen}
+          onClose={() => setAvatarPickerOpen(false)}
+          currentAvatarId={profile?.avatar_id ?? null}
+          address={address}
+          onSaved={refetchProfile}
+        />
+      )}
+
+      {activeEvent && address && (
+        <BuyTicketsModal
+          visible={buyModalOpen}
+          onClose={() => setBuyModalOpen(false)}
+          activeEvent={activeEvent}
+          address={address}
+          slpPrice={slpPrice}
+          onBought={loadProfileData}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -434,38 +905,20 @@ const tk = StyleSheet.create({
   tape: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#1a1100", paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.amberDim },
   tapeTxt: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
   tapeMonth: { color: C.parchment, fontFamily: MONO, fontSize: 11, letterSpacing: 2 },
-  body: { flexDirection: "row", padding: 16, gap: 14, alignItems: "center" },
-  counterCol: { alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  bigNum: { color: C.amber, fontFamily: MONO, fontSize: 56, fontWeight: "900", lineHeight: 60, letterSpacing: -2 },
-  bigLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 3, marginTop: 2 },
-  divider: { width: 1, alignSelf: "stretch", backgroundColor: C.redDark, marginHorizontal: 4 },
-  miniLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, letterSpacing: 2, marginBottom: 6 },
-  progressRow: { flexDirection: "row", gap: 3 },
-  progressSeg: { flex: 1, height: 16, borderWidth: 1, borderColor: C.redDark },
-  progressTxt: { fontFamily: MONO, fontSize: 12, letterSpacing: 1.5, marginTop: 8, fontWeight: "700" },
-  buyWrap: { padding: 12, paddingTop: 0 },
 });
 
 const bag = StyleSheet.create({
-  panel: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink, padding: 12 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
-  emptyMsg: { alignItems: "center", marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.redDark },
+  panel: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink, padding: 14 },
+  emptyMsg: { alignItems: "center", paddingVertical: 10 },
   emptyTxt: { color: C.parchment, fontFamily: MONO, fontSize: 13, letterSpacing: 3, fontWeight: "900", marginTop: 10 },
-  emptySub: { color: C.muted, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, marginTop: 4 },
-});
-
-const empty = StyleSheet.create({
-  slot: { width: "30%", aspectRatio: 1, backgroundColor: "#000", borderWidth: 1, borderColor: C.redDark, justifyContent: "center", alignItems: "center" },
-  dash: { color: C.muted, fontFamily: MONO, fontSize: 12, letterSpacing: 2 },
+  emptySub: { color: C.muted, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5, marginTop: 4, textAlign: "center" },
 });
 
 const mint = StyleSheet.create({
   panel: { borderWidth: 2, borderColor: C.redDark, backgroundColor: C.ink, padding: 14 },
-  row: { flexDirection: "row", alignItems: "center" },
-  title: { color: C.parchment, fontFamily: MONO, fontSize: 14, fontWeight: "900", letterSpacing: 2 },
-  sub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, marginTop: 4, lineHeight: 16 },
-  lock: { marginTop: 12, backgroundColor: "#1a0008", borderLeftWidth: 3, borderLeftColor: C.red, paddingHorizontal: 10, paddingVertical: 8 },
-  lockTxt: { color: C.red, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
+  row: { flexDirection: "row", alignItems: "flex-start" },
+  title: { color: C.parchment, fontFamily: MONO, fontSize: 13, fontWeight: "900", letterSpacing: 1.5 },
+  sub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, marginTop: 6, lineHeight: 15 },
 });
 
 const err = StyleSheet.create({

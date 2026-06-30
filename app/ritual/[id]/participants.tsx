@@ -1,43 +1,69 @@
 /**
  * app/ritual/[id]/participants.tsx
  * Lista de wallets participantes y tickets comprados por cada una.
+ * 100% conectado a Supabase.
  */
-import React from "react";
+import { ThemedText } from "@/components/themed-text";
+import { fmtSlp } from "@/hooks/use-slp-price";
+import { supabase } from "@/lib/supabase";
+import { useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
-import { ThemedText } from "@/components/themed-text";
-import { C, getEvent } from "@/constants/ritualData";
+
+const C = {
+  bg: "#000000", surface: "#0b0000", surface2: "#130000", border: "#2a0000", borderMid: "#550000",
+  crimson: "#CC0000", ember: "#FF6600", emberDim: "#FF660020", slate: "#5a5a6a", parchment: "#C8BEB0",
+};
+
+type Participant = { wallet_address: string; tickets_count: number };
+type EventInfo = { event_number: number; label: string; total_raised_slp: number };
 
 export default function ParticipantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const event = getEvent(Number(id));
+  const [event, setEvent] = useState<EventInfo | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!event) return (
-    <SafeAreaView style={s.safe}>
-      <ThemedText style={s.empty}>Ritual no encontrado</ThemedText>
-    </SafeAreaView>
-  );
+  useEffect(() => {
+    (async () => {
+      const [{ data: eventData }, { data: participantsData }] = await Promise.all([
+        supabase.from("events").select("event_number, label, total_raised_slp").eq("id", id).maybeSingle(),
+        supabase.from("participants").select("wallet_address, tickets_count").eq("event_id", id).order("tickets_count", { ascending: false }),
+      ]);
+      setEvent(eventData ?? null);
+      setParticipants(participantsData ?? []);
+      setLoading(false);
+    })();
+  }, [id]);
 
-  const sorted = [...event.participantList].sort((a, b) => b.tickets - a.tickets);
-  const totalTickets = sorted.reduce((a, p) => a + p.tickets, 0);
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <ThemedText style={s.empty}>Cargando participantes...</ThemedText>
+      </SafeAreaView>
+    );
+  }
+
+  if (!event) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <ThemedText style={s.empty}>Ritual no encontrado</ThemedText>
+      </SafeAreaView>
+    );
+  }
+
+  const totalTickets = participants.reduce((a, p) => a + p.tickets_count, 0);
 
   return (
     <SafeAreaView style={s.safe} edges={["bottom"]}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* Header */}
-        <ThemedText style={s.title}>
-          PARTICIPANTES — RITUAL #{event.id}
-        </ThemedText>
+        <ThemedText style={s.title}>PARTICIPANTES — RITUAL #{event.event_number}</ThemedText>
         <ThemedText style={s.sub}>{event.label}</ThemedText>
 
-        {/* Summary */}
         <View style={s.summaryRow}>
           <View style={s.summaryItem}>
-            <ThemedText style={s.summaryVal}>
-              {event.participantList.length}
-            </ThemedText>
+            <ThemedText style={s.summaryVal}>{participants.length}</ThemedText>
             <ThemedText style={s.summaryKey}>WALLETS</ThemedText>
           </View>
           <View style={s.summaryDiv} />
@@ -47,45 +73,42 @@ export default function ParticipantsScreen() {
           </View>
           <View style={s.summaryDiv} />
           <View style={s.summaryItem}>
-            <ThemedText style={s.summaryVal}>
-              ${event.totalRaisedUsd.toLocaleString()}
-            </ThemedText>
-            <ThemedText style={s.summaryKey}>USD RECAUDADOS</ThemedText>
+            <ThemedText style={s.summaryVal}>{fmtSlp(event.total_raised_slp)}</ThemedText>
+            <ThemedText style={s.summaryKey}>SLP RECAUDADOS</ThemedText>
           </View>
         </View>
 
-        {/* Nota */}
         <View style={s.note}>
           <ThemedText style={s.noteTxt}>
-            Cada wallet aparece con la cantidad de tickets que compró durante la ventana de 72 horas. Un ticket = un NFT ERC-721 en la wallet Ronin del participante.
+            Cada wallet aparece con la cantidad de tickets que compró durante la ventana de 72 horas. Un ticket = un NFT en la wallet Ronin del participante.
           </ThemedText>
         </View>
 
-        {/* Table header */}
-        <View style={s.tableHeader}>
-          <ThemedText style={[s.col, { flex: 0.4 }]}>#</ThemedText>
-          <ThemedText style={[s.col, { flex: 3 }]}>WALLET</ThemedText>
-          <ThemedText style={[s.col, { flex: 1, textAlign: "right" }]}>
-            TICKETS
+        {participants.length === 0 ? (
+          <ThemedText style={{ color: C.slate, textAlign: "center", marginTop: 20 }}>
+            No hubo participantes registrados en este ritual.
           </ThemedText>
-        </View>
-
-        {/* Rows */}
-        {sorted.map((p, i) => (
-          <View key={i} style={s.row}>
-            <ThemedText style={[s.rowNum, { flex: 0.4 }]}>
-              {i + 1}
-            </ThemedText>
-            <ThemedText style={[s.rowWallet, { flex: 3 }]}>
-              {p.wallet}
-            </ThemedText>
-            <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <View style={s.ticketBadge}>
-                <ThemedText style={s.ticketVal}>{p.tickets}</ThemedText>
-              </View>
+        ) : (
+          <>
+            <View style={s.tableHeader}>
+              <ThemedText style={[s.col, { flex: 0.4 }]}>#</ThemedText>
+              <ThemedText style={[s.col, { flex: 3 }]}>WALLET</ThemedText>
+              <ThemedText style={[s.col, { flex: 1, textAlign: "right" }]}>TICKETS</ThemedText>
             </View>
-          </View>
-        ))}
+
+            {participants.map((p, i) => (
+              <View key={i} style={s.row}>
+                <ThemedText style={[s.rowNum, { flex: 0.4 }]}>{i + 1}</ThemedText>
+                <ThemedText style={[s.rowWallet, { flex: 3 }]} numberOfLines={1}>{p.wallet_address}</ThemedText>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <View style={s.ticketBadge}>
+                    <ThemedText style={s.ticketVal}>{p.tickets_count}</ThemedText>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -103,8 +126,8 @@ const s = StyleSheet.create({
 
   summaryRow:  { flexDirection: "row", alignItems: "center", backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 14 },
   summaryItem: { flex: 1, alignItems: "center" },
-  summaryVal:  { color: C.crimson, fontWeight: "900", fontSize: 18 },
-  summaryKey:  { color: C.slate, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },
+  summaryVal:  { color: C.crimson, fontWeight: "900", fontSize: 16 },
+  summaryKey:  { color: C.slate, fontSize: 7, letterSpacing: 1.5, marginTop: 2, textAlign: "center" },
   summaryDiv:  { width: 1, height: 30, backgroundColor: C.borderMid },
 
   note:    { backgroundColor: C.surface2, borderLeftWidth: 2, borderLeftColor: C.borderMid, padding: 10, marginBottom: 14 },
