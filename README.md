@@ -307,4 +307,4 @@ La API es idéntica, solo cambia el módulo de origen.
 
 ## 👥 Equipo
 
-Proyecto universitario — Fynolt's Cult.
+Proyecto universitario — Facultad de [nombre de la facultad].
