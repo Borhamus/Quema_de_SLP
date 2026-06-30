@@ -400,39 +400,3 @@ const channel = supabase
 
 
 
-
-Quiero que "el nivel" sea medido de esta manera:
-nivel 1: Llegar a 50usd en la pool rewards. Lo que agregara 1 reward de 50usd en slp.
-Esto hace que el nivel 1 pase a 2 y la pool de rewards vaya a 0, porque esa plata ahora esta planificada para la reward.
-Se debe mostrar "Rewards de nivel 1: x1 "x slp (50usd)".
-
-nivel 2: Llegar a 100usd en la pool rewards. Lo que agregara 2 rewards de 50usd en slp.
-Esto hace que el nivel 2 pase a 3 y la pool de rewards vaya a 0, porque esa plata ahora esta planificada para la reward.
-Se debe mostrar "Rewards de nivel 2: x2 "x slp (50usd)".
-Cada reward puede ser un rectangulo propio.
-
-nivel 3: Llegar a 150usd en la pool rewards. Lo que agregara 3 rewards de 50usd en slp.
-Esto hace que el nivel 3 pase a 4 y la pool de rewards vaya a 0, porque esa plata ahora esta planificada para la reward.
-Se debe mostrar "Rewards de nivel 3: x3 "x slp (50usd)". 
-Cada reward puede ser un rectangulo propio.
-
-nivel 4: Llegar a 200usd en la pool rewards. Lo que agregara 4 rewards de 50usd en slp.
-Esto hace que el nivel 4 pase a 5 y la pool de rewards vaya a 0, porque esa plata ahora esta planificada para la reward.
-Se debe mostrar "Rewards de nivel 4: x4 "x slp (50usd)". 
-Cada reward puede ser un rectangulo propio.
-
-nivel 5: Llegar a 250usd en la pool rewards. Lo que agregara 1 reward de 50usd y 2 de 100usd en slp.
-Esto hace que el nivel 5 pase a 6 y la pool de rewards vaya a 0, porque esa plata ahora esta planificada para la reward.
-Se debe mostrar "Rewards de nivel 5: x1 "x slp (50usd)" y x2 "x slp (100usd)". 
-Cada reward puede ser un rectangulo propio.
-
-nivel 6: Llegar a 300usd en la pool rewards. Lo que agregara 3 rewards de 100usd en slp.
-Esto hace que el nivel 6 pase a 7 y la pool de rewards vaya a 0, porque esa plata ahora esta planificada para la reward.
-Se debe mostrar "Rewards de nivel 6: x3 "x slp (100usd)". 
-Cada reward puede ser un rectangulo propio.
-
-y del nivel 6 para adelante siempre va a ser igual.
-cada nuevo nivel es el mismo valor que el de nivel 6.
-Si se termina el tiempo y se llega a un nivel x porque se compro una determinada cantidad de tickets con la que se junto x cantidad de plata, la plata "sobrante" con la que no se llego a una reward, va directo al pool para el pool especial.
-eso tiene que quedar aclarado en el flujo de plata.
-
