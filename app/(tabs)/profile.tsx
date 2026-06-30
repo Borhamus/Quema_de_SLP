@@ -1,3 +1,7 @@
+/**
+ * app/(tabs)/profile.tsx
+ * Pantalla de perfil con login via Ronin Wallet (extensión directa)
+ */
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
@@ -9,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useWallet } from "@/contexts/wallet-context";
 
 // ── ARCADE PALETTE ──────────────────────────────────────────────
 const C = {
@@ -27,7 +32,7 @@ const C = {
 
 const MONO = Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" });
 
-// ── HOOK ────────────────────────────────────────────────────────
+// ── HOOKS ───────────────────────────────────────────────────────
 function useBlink(period = 900) {
   const v = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -46,29 +51,18 @@ function useBlink(period = 900) {
 // ── PIXEL ART ───────────────────────────────────────────────────
 function PixelWallet({ size = 60 }: { size?: number }) {
   const p = size / 10;
-  const r = C.red;
-  const d = C.redDark;
-  const a = C.amber;
-  const k = "transparent";
+  const r = C.red; const d = C.redDark; const a = C.amber; const k = "transparent";
   const map = [
-    [k, k, r, r, r, r, r, r, k, k],
-    [k, r, d, d, d, d, d, d, r, k],
-    [r, d, d, d, d, d, d, d, d, r],
-    [r, d, a, a, k, k, a, a, d, r],
-    [r, d, a, k, k, k, k, a, d, r],
-    [r, d, a, a, k, k, a, a, d, r],
-    [r, d, d, d, d, d, d, d, d, r],
-    [r, d, d, r, r, r, r, d, d, r],
-    [k, r, r, r, k, k, r, r, r, k],
-    [k, k, k, k, k, k, k, k, k, k],
+    [k,k,r,r,r,r,r,r,k,k],[k,r,d,d,d,d,d,d,r,k],[r,d,d,d,d,d,d,d,d,r],
+    [r,d,a,a,k,k,a,a,d,r],[r,d,a,k,k,k,k,a,d,r],[r,d,a,a,k,k,a,a,d,r],
+    [r,d,d,d,d,d,d,d,d,r],[r,d,d,r,r,r,r,d,d,r],[k,r,r,r,k,k,r,r,r,k],
+    [k,k,k,k,k,k,k,k,k,k],
   ];
   return (
     <View style={{ width: size, height: size }}>
       {map.map((row, y) => (
         <View key={y} style={{ flexDirection: "row" }}>
-          {row.map((c, x) => (
-            <View key={x} style={{ width: p, height: p, backgroundColor: c }} />
-          ))}
+          {row.map((c, x) => <View key={x} style={{ width: p, height: p, backgroundColor: c }} />)}
         </View>
       ))}
     </View>
@@ -77,26 +71,16 @@ function PixelWallet({ size = 60 }: { size?: number }) {
 
 function PixelTicket({ size = 56 }: { size?: number }) {
   const p = size / 8;
-  const a = C.amber;
-  const d = C.amberDim;
-  const k = "transparent";
+  const a = C.amber; const d = C.amberDim; const k = "transparent";
   const map = [
-    [k, a, a, a, a, a, a, k],
-    [a, d, d, d, d, d, d, a],
-    [a, d, a, a, a, a, d, a],
-    [k, d, a, k, k, a, d, k],
-    [k, d, a, k, k, a, d, k],
-    [a, d, a, a, a, a, d, a],
-    [a, d, d, d, d, d, d, a],
-    [k, a, a, a, a, a, a, k],
+    [k,a,a,a,a,a,a,k],[a,d,d,d,d,d,d,a],[a,d,a,a,a,a,d,a],[k,d,a,k,k,a,d,k],
+    [k,d,a,k,k,a,d,k],[a,d,a,a,a,a,d,a],[a,d,d,d,d,d,d,a],[k,a,a,a,a,a,a,k],
   ];
   return (
     <View style={{ width: size, height: size }}>
       {map.map((row, y) => (
         <View key={y} style={{ flexDirection: "row" }}>
-          {row.map((c, x) => (
-            <View key={x} style={{ width: p, height: p, backgroundColor: c }} />
-          ))}
+          {row.map((c, x) => <View key={x} style={{ width: p, height: p, backgroundColor: c }} />)}
         </View>
       ))}
     </View>
@@ -105,26 +89,16 @@ function PixelTicket({ size = 56 }: { size?: number }) {
 
 function PixelKey({ size = 28 }: { size?: number }) {
   const p = size / 8;
-  const a = C.amber;
-  const d = C.amberDim;
-  const k = "transparent";
+  const a = C.amber; const d = C.amberDim; const k = "transparent";
   const map = [
-    [k, k, a, a, k, k, k, k],
-    [k, a, d, d, a, k, k, k],
-    [k, a, d, d, a, k, k, k],
-    [k, k, a, a, a, a, a, a],
-    [k, k, k, k, a, k, k, a],
-    [k, k, k, k, a, k, a, k],
-    [k, k, k, k, a, k, k, a],
-    [k, k, k, k, a, a, a, a],
+    [k,k,a,a,k,k,k,k],[k,a,d,d,a,k,k,k],[k,a,d,d,a,k,k,k],[k,k,a,a,a,a,a,a],
+    [k,k,k,k,a,k,k,a],[k,k,k,k,a,k,a,k],[k,k,k,k,a,k,k,a],[k,k,k,k,a,a,a,a],
   ];
   return (
     <View style={{ width: size, height: size }}>
       {map.map((row, y) => (
         <View key={y} style={{ flexDirection: "row" }}>
-          {row.map((c, x) => (
-            <View key={x} style={{ width: p, height: p, backgroundColor: c }} />
-          ))}
+          {row.map((c, x) => <View key={x} style={{ width: p, height: p, backgroundColor: c }} />)}
         </View>
       ))}
     </View>
@@ -133,26 +107,16 @@ function PixelKey({ size = 28 }: { size?: number }) {
 
 function PixelBag({ size = 64 }: { size?: number }) {
   const p = size / 8;
-  const r = C.redDim;
-  const d = C.redDark;
-  const k = "transparent";
+  const r = C.redDim; const d = C.redDark; const k = "transparent";
   const map = [
-    [k, k, r, k, k, r, k, k],
-    [k, k, r, k, k, r, k, k],
-    [k, r, r, r, r, r, r, k],
-    [r, d, r, d, d, r, d, r],
-    [r, d, d, d, d, d, d, r],
-    [r, d, d, r, r, d, d, r],
-    [r, d, d, d, d, d, d, r],
-    [k, r, r, r, r, r, r, k],
+    [k,k,r,k,k,r,k,k],[k,k,r,k,k,r,k,k],[k,r,r,r,r,r,r,k],[r,d,r,d,d,r,d,r],
+    [r,d,d,d,d,d,d,r],[r,d,d,r,r,d,d,r],[r,d,d,d,d,d,d,r],[k,r,r,r,r,r,r,k],
   ];
   return (
     <View style={{ width: size, height: size }}>
       {map.map((row, y) => (
         <View key={y} style={{ flexDirection: "row" }}>
-          {row.map((c, x) => (
-            <View key={x} style={{ width: p, height: p, backgroundColor: c }} />
-          ))}
+          {row.map((c, x) => <View key={x} style={{ width: p, height: p, backgroundColor: c }} />)}
         </View>
       ))}
     </View>
@@ -160,57 +124,47 @@ function PixelBag({ size = 64 }: { size?: number }) {
 }
 
 // ── COMPONENTS ──────────────────────────────────────────────────
-function HudBar() {
+function HudBar({ address }: { address?: string }) {
   const blink = useBlink(700);
   return (
     <View style={hud.row}>
-      <Text style={hud.hp}>
-        HP <Text style={{ color: C.red }}>████░</Text> 1P
-      </Text>
+      <Text style={hud.hp}>HP <Text style={{ color: C.red }}>████░</Text> 1P</Text>
       <Animated.Text style={[hud.rec, { opacity: blink }]}>● PLAYER LOG</Animated.Text>
-      <Text style={hud.hi}>SLOT 01</Text>
+      <Text style={hud.hi}>{address ? "ONLINE" : "SLOT 01"}</Text>
     </View>
   );
 }
 
 function ArcadeButton({
-  label,
-  sub,
-  onPress,
-  color = "red",
-  disabled = false,
-  icon,
+  label, sub, onPress, color = "red", disabled = false, icon, loading = false,
 }: {
-  label: string;
-  sub?: string;
-  onPress?: () => void;
-  color?: "red" | "amber" | "dark";
-  disabled?: boolean;
-  icon?: React.ReactNode;
+  label: string; sub?: string; onPress?: () => void;
+  color?: "red" | "amber" | "dark"; disabled?: boolean;
+  icon?: React.ReactNode; loading?: boolean;
 }) {
   const palette = {
-    red: { bg: C.red, border: "#fff", text: "#fff" },
-    amber: { bg: C.amber, border: "#000", text: "#000" },
-    dark: { bg: "#1a0008", border: C.redDark, text: C.parchmentDim },
+    red:   { bg: C.red,      border: "#fff",      text: "#fff" },
+    amber: { bg: C.amber,    border: "#000",      text: "#000" },
+    dark:  { bg: "#1a0008",  border: C.redDark,   text: C.parchmentDim },
   }[color];
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || loading}
       activeOpacity={0.8}
-      style={[
-        btn.btn,
-        { backgroundColor: palette.bg, borderColor: palette.border },
-        disabled && { opacity: 0.5 },
-      ]}
+      style={[btn.btn, { backgroundColor: palette.bg, borderColor: palette.border }, (disabled || loading) && { opacity: 0.5 }]}
     >
       {icon && <View style={btn.icon}>{icon}</View>}
       <View style={{ flex: 1 }}>
-        <Text style={[btn.label, { color: palette.text }]}>{label}</Text>
-        {sub && <Text style={[btn.sub, { color: palette.text }]}>{sub}</Text>}
+        <Text style={[btn.label, { color: palette.text }]}>
+          {loading ? "CONECTANDO..." : label}
+        </Text>
+        {sub && !loading && <Text style={[btn.sub, { color: palette.text }]}>{sub}</Text>}
       </View>
-      <Text style={[btn.arrow, { color: palette.text }]}>▸</Text>
+      <Text style={[btn.arrow, { color: palette.text }]}>
+        {loading ? "◌" : "▸"}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -223,24 +177,59 @@ function EmptySlot() {
   );
 }
 
+function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <TouchableOpacity onPress={onDismiss} style={err.wrap}>
+      <Text style={err.icon}>⚠</Text>
+      <Text style={err.msg}>{message}</Text>
+      <Text style={err.x}>✕</Text>
+    </TouchableOpacity>
+  );
+}
+
+function shortAddress(address: string) {
+  if (!address) return "";
+  return `${address.slice(0, 8)}...${address.slice(-6)}`;
+}
+
 // ── SCREEN ──────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const eventoActivo = true;
+  const { address, isConnecting, isVerifying, isAuthenticated, error, connectAndAuthenticate, disconnect, clearError } = useWallet();
+
   const tickets: any[] = [];
   const ticketsCount = 0;
   const yearProgress = 0;
   const yearGoal = 12;
+  const eventoActivo = true;
+
+  const isConnected = isAuthenticated && !!address;
+  const isLoading = isConnecting || isVerifying;
+
+  const handleLogin = async () => {
+    await connectAndAuthenticate();
+  };
+
+  const handleLogout = () => {
+    disconnect();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <HudBar />
+        <HudBar address={address ?? undefined} />
 
-        {/* Player card header */}
+        {/* Error banner */}
+        {error && (
+          <ErrorBanner message={error} onDismiss={clearError} />
+        )}
+
+        {/* Player card */}
         <View style={card.playerWrap}>
           <View style={card.idStrip}>
             <Text style={card.idStripTxt}>★ PLAYER 1 ★</Text>
-            <Text style={card.idStripCode}>ID :: GUEST-00</Text>
+            <Text style={card.idStripCode}>
+              {isConnected ? "AUTENTICADO" : "ID :: GUEST-00"}
+            </Text>
           </View>
 
           <View style={card.playerBody}>
@@ -248,24 +237,50 @@ export default function ProfileScreen() {
               <PixelWallet size={64} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={card.playerName}>NO CONECTADO</Text>
-              <Text style={card.playerSub}>Conectá tu Ronin para empezar</Text>
+              <Text style={card.playerName}>
+                {isConnected ? shortAddress(address!) : "NO CONECTADO"}
+              </Text>
+              <Text style={card.playerSub}>
+                {isConnected
+                  ? address
+                  : "Conectá tu Ronin para empezar"}
+              </Text>
               <View style={card.statusRow}>
-                <View style={[card.statusDot, { backgroundColor: C.redDim }]} />
-                <Text style={card.statusTxt}>OFFLINE</Text>
+                <View style={[card.statusDot, { backgroundColor: isConnected ? C.ok : C.redDim }]} />
+                <Text style={[card.statusTxt, { color: isConnected ? C.ok : C.parchmentDim }]}>
+                  {isConnected ? "ONLINE · RONIN" : "OFFLINE"}
+                </Text>
               </View>
             </View>
           </View>
 
           <View style={card.connectWrap}>
-            <ArcadeButton
-              label="INSERT WALLET"
-              sub="Conectar Ronin"
-              color="red"
-              icon={<Text style={btn.iconTxt}>◈</Text>}
-            />
+            {isConnected ? (
+              <ArcadeButton
+                label="DESCONECTAR"
+                sub="Cerrar sesión"
+                color="dark"
+                icon={<Text style={btn.iconTxt}>◈</Text>}
+                onPress={handleLogout}
+              />
+            ) : (
+              <ArcadeButton
+                label="INSERT WALLET"
+                sub="Conectar y firmar con Ronin"
+                color="red"
+                icon={<Text style={btn.iconTxt}>◈</Text>}
+                onPress={handleLogin}
+                loading={isLoading}
+              />
+            )}
           </View>
         </View>
+
+        {isVerifying && (
+          <Text style={{ color: C.amber, fontFamily: MONO, fontSize: 10, textAlign: "center", marginTop: -8, marginBottom: 12, letterSpacing: 1 }}>
+            ⚠ FIRMÁ EL MENSAJE EN TU WALLET PARA CONTINUAR
+          </Text>
+        )}
 
         {/* Tickets HUD */}
         <View style={styles.sectionHead}>
@@ -277,7 +292,9 @@ export default function ProfileScreen() {
         <View style={tk.panel}>
           <View style={tk.tape}>
             <Text style={tk.tapeTxt}>▸ COIN COUNTER</Text>
-            <Text style={tk.tapeMonth}>NOV / 2024</Text>
+            <Text style={tk.tapeMonth}>
+              {new Date().toLocaleString("es-AR", { month: "short", year: "numeric" }).toUpperCase()}
+            </Text>
           </View>
           <View style={tk.body}>
             <View style={tk.counterCol}>
@@ -291,9 +308,9 @@ export default function ProfileScreen() {
                 {Array.from({ length: yearGoal }).map((_, i) => (
                   <View
                     key={i}
-                    style={[
-                      tk.progressSeg,
-                      i < yearProgress ? { backgroundColor: C.amber } : { backgroundColor: "#1a0a0a" },
+                    style={[tk.progressSeg, i < yearProgress
+                      ? { backgroundColor: C.amber }
+                      : { backgroundColor: "#1a0a0a" }
                     ]}
                   />
                 ))}
@@ -312,6 +329,7 @@ export default function ProfileScreen() {
                 sub="3 USD en SLP · podés comprar más de uno"
                 color="amber"
                 icon={<PixelTicket size={28} />}
+                disabled={!isConnected}
               />
             </View>
           )}
@@ -322,29 +340,20 @@ export default function ProfileScreen() {
           <View style={styles.sectionDot} />
           <Text style={styles.sectionTitle}>TU BOLSA // INVENTORY</Text>
           <View style={styles.sectionLine} />
-          <Text style={styles.sectionCount}>
-            {String(tickets.length).padStart(2, "0")}/06
-          </Text>
+          <Text style={styles.sectionCount}>{String(tickets.length).padStart(2, "0")}/06</Text>
         </View>
 
         <View style={bag.panel}>
           <View style={bag.grid}>
-            {tickets.length === 0 ? (
-              <>
-                {/* 6 empty slots in 3x2 grid */}
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <EmptySlot key={i} />
-                ))}
-              </>
-            ) : (
-              tickets.map((_, i) => <EmptySlot key={i} />)
-            )}
+            {Array.from({ length: 6 }).map((_, i) => <EmptySlot key={i} />)}
           </View>
           {tickets.length === 0 && (
             <View style={bag.emptyMsg}>
               <PixelBag size={48} />
               <Text style={bag.emptyTxt}>BOLSA VACÍA</Text>
-              <Text style={bag.emptySub}>Tus tickets aparecerán acá</Text>
+              <Text style={bag.emptySub}>
+                {isConnected ? "Tus tickets aparecerán acá" : "Conectá tu wallet para ver tus tickets"}
+              </Text>
             </View>
           )}
         </View>
@@ -360,7 +369,7 @@ export default function ProfileScreen() {
           <View style={mint.row}>
             <PixelKey size={36} />
             <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={mint.title}>MINTEAR LLAVE 2024</Text>
+              <Text style={mint.title}>MINTEAR LLAVE {new Date().getFullYear()}</Text>
               <Text style={mint.sub}>Necesitás 12/12 tickets para forjar tu llave anual</Text>
             </View>
           </View>
@@ -382,13 +391,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   scrollContent: { padding: 16, paddingTop: 8, paddingBottom: 60 },
-  sectionHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 18,
-    marginBottom: 10,
-    gap: 8,
-  },
+  sectionHead: { flexDirection: "row", alignItems: "center", marginTop: 18, marginBottom: 10, gap: 8 },
   sectionDot: { width: 8, height: 8, backgroundColor: C.red },
   sectionTitle: { color: C.parchment, fontFamily: MONO, fontSize: 12, letterSpacing: 2, fontWeight: "700" },
   sectionLine: { flex: 1, height: 1, backgroundColor: C.redDark },
@@ -396,15 +399,7 @@ const styles = StyleSheet.create({
 });
 
 const hud = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: C.redDark,
-    marginBottom: 12,
-  },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.redDark, marginBottom: 12 },
   hp: { color: C.parchment, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
   rec: { color: C.red, fontFamily: MONO, fontSize: 10, letterSpacing: 1.5 },
   hi: { color: C.amber, fontFamily: MONO, fontSize: 10, letterSpacing: 1.2 },
@@ -412,39 +407,21 @@ const hud = StyleSheet.create({
 
 const card = StyleSheet.create({
   playerWrap: { borderWidth: 2, borderColor: C.red, backgroundColor: C.ink },
-  idStrip: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: C.red,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
+  idStrip: { flexDirection: "row", justifyContent: "space-between", backgroundColor: C.red, paddingHorizontal: 12, paddingVertical: 6 },
   idStripTxt: { color: "#fff", fontFamily: MONO, fontSize: 11, letterSpacing: 3, fontWeight: "900" },
   idStripCode: { color: "#fff", fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, fontWeight: "700" },
   playerBody: { flexDirection: "row", padding: 16, alignItems: "center", gap: 14 },
-  avatar: {
-    borderWidth: 2,
-    borderColor: C.redDark,
-    padding: 6,
-    backgroundColor: "#000",
-  },
+  avatar: { borderWidth: 2, borderColor: C.redDark, padding: 6, backgroundColor: "#000" },
   playerName: { color: C.parchment, fontFamily: MONO, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
-  playerSub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, marginTop: 4 },
+  playerSub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, marginTop: 4, flexShrink: 1 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
   statusDot: { width: 8, height: 8 },
-  statusTxt: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 2, fontWeight: "700" },
+  statusTxt: { fontFamily: MONO, fontSize: 10, letterSpacing: 2, fontWeight: "700" },
   connectWrap: { padding: 12, paddingTop: 0 },
 });
 
 const btn = StyleSheet.create({
-  btn: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 12,
-  },
+  btn: { flexDirection: "row", alignItems: "center", borderWidth: 2, paddingHorizontal: 14, paddingVertical: 12, gap: 12 },
   icon: { width: 32, alignItems: "center" },
   iconTxt: { color: "#fff", fontFamily: MONO, fontSize: 20, fontWeight: "900" },
   label: { fontFamily: MONO, fontSize: 14, letterSpacing: 2, fontWeight: "900" },
@@ -454,30 +431,12 @@ const btn = StyleSheet.create({
 
 const tk = StyleSheet.create({
   panel: { borderWidth: 2, borderColor: C.amber, backgroundColor: C.ink },
-  tape: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#1a1100",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: C.amberDim,
-  },
+  tape: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#1a1100", paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.amberDim },
   tapeTxt: { color: C.amber, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
   tapeMonth: { color: C.parchment, fontFamily: MONO, fontSize: 11, letterSpacing: 2 },
   body: { flexDirection: "row", padding: 16, gap: 14, alignItems: "center" },
   counterCol: { alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  bigNum: {
-    color: C.amber,
-    fontFamily: MONO,
-    fontSize: 56,
-    fontWeight: "900",
-    lineHeight: 60,
-    letterSpacing: -2,
-    textShadowColor: "rgba(255,179,0,0.5)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
-  },
+  bigNum: { color: C.amber, fontFamily: MONO, fontSize: 56, fontWeight: "900", lineHeight: 60, letterSpacing: -2 },
   bigLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 10, letterSpacing: 3, marginTop: 2 },
   divider: { width: 1, alignSelf: "stretch", backgroundColor: C.redDark, marginHorizontal: 4 },
   miniLabel: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, letterSpacing: 2, marginBottom: 6 },
@@ -496,15 +455,7 @@ const bag = StyleSheet.create({
 });
 
 const empty = StyleSheet.create({
-  slot: {
-    width: "30%",
-    aspectRatio: 1,
-    backgroundColor: "#000",
-    borderWidth: 1,
-    borderColor: C.redDark,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  slot: { width: "30%", aspectRatio: 1, backgroundColor: "#000", borderWidth: 1, borderColor: C.redDark, justifyContent: "center", alignItems: "center" },
   dash: { color: C.muted, fontFamily: MONO, fontSize: 12, letterSpacing: 2 },
 });
 
@@ -513,13 +464,13 @@ const mint = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center" },
   title: { color: C.parchment, fontFamily: MONO, fontSize: 14, fontWeight: "900", letterSpacing: 2 },
   sub: { color: C.parchmentDim, fontFamily: MONO, fontSize: 11, marginTop: 4, lineHeight: 16 },
-  lock: {
-    marginTop: 12,
-    backgroundColor: "#1a0008",
-    borderLeftWidth: 3,
-    borderLeftColor: C.red,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
+  lock: { marginTop: 12, backgroundColor: "#1a0008", borderLeftWidth: 3, borderLeftColor: C.red, paddingHorizontal: 10, paddingVertical: 8 },
   lockTxt: { color: C.red, fontFamily: MONO, fontSize: 11, letterSpacing: 2, fontWeight: "700" },
+});
+
+const err = StyleSheet.create({
+  wrap: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1a0008", borderLeftWidth: 3, borderLeftColor: C.red, padding: 10, marginBottom: 12 },
+  icon: { color: C.red, fontFamily: MONO, fontSize: 14, fontWeight: "900" },
+  msg: { flex: 1, color: C.parchment, fontFamily: MONO, fontSize: 11, lineHeight: 16 },
+  x: { color: C.redDim, fontFamily: MONO, fontSize: 12 },
 });

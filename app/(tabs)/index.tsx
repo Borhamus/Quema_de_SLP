@@ -1,9 +1,9 @@
+import { ThemedText } from "@/components/themed-text";
+import { C, GLOBAL_STATS, PAST_EVENTS, fmt } from "@/constants/ritualData";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { ThemedText } from "@/components/themed-text";
-import { C, PAST_EVENTS, GLOBAL_STATS, fmt } from "@/constants/ritualData";
 
 function useLayout() { const { width } = useWindowDimensions(); const w = width >= 600; return { isWide: w, hPad: w ? 32 : 16, cardW: w ? Math.min(width * 0.44, 340) : width - 56 }; }
 

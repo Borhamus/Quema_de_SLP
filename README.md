@@ -1,278 +1,310 @@
-#  Evento de Quema de SLP — App Móvil
+# 🔥 Fynolt's Cult — Evento de Quema de SLP
 
-Una aplicación móvil multiplataforma (iOS/Android) desarrollada con **React Native + Expo**, orientada al ecosistema de **Axie Infinity** en la red **Ronin**. Su objetivo es crear un mecanismo deflacionario mensual donde la comunidad puede comprar tickets, participar en sorteos, intercambiar Axies y contribuir activamente a la quema de SLP.
+App móvil y web desarrollada con **React Native + Expo** para el ecosistema de **Axie Infinity** en la red **Ronin**.
 
----
+Mecanismo deflacionario mensual donde la comunidad compra tickets, participa en sorteos de Axies y Lands, intercambia Axies no deseados, y contribuye a la quema permanente de SLP y la liberación de Axies del mercado.
 
-##  ¿Qué es esto?
-
-La economía de Axie Infinity enfrenta dos problemas estructurales:
-
-- **Exceso de SLP:** el token pierde valor porque se emite constantemente pero se consume poco.
-- **Saturación de Axies:** hay miles de Axies de baja calidad que nadie quiere, deprimiendo el mercado.
-
-Esta app introduce un **evento mensual de 72 horas** que actúa como un "agujero negro" de activos. Cada vez que alguien participa, retira SLP y/o Axies de circulación de forma permanente. La idea es que sea un win-win: los usuarios tienen la chance de ganar premios de alto valor, y el ecosistema se beneficia de la deflación.
+**Estética:** Dark Retro Arcane — inspirada en Wizardry, Final Fantasy I (NES) y Warhammer 40k (90s). Negro absoluto, rojo carmesí, tipografía monospace, corner brackets y sellos de Salomón como elementos decorativos.
 
 ---
 
-##  ¿Cómo funciona el sistema?
+## 🎯 Filosofía del proyecto
 
-### 1. Compra de Tickets (ventana de 72 hs)
+La economía de Axie Infinity tiene dos problemas estructurales: el exceso de SLP que pierde valor constantemente, y miles de Axies de baja calidad que saturan el mercado.
 
-Al inicio de cada mes se abre una ventana de 72 horas donde los usuarios pueden comprar tickets pagando **3 USD en SLP** (calculado en tiempo real). Cada ticket es un NFT (ERC-721) que se envía a la wallet del comprador. Tener los **12 tickets del año** desbloquea acceso al evento anual legendario.
-
-### 2. Distribución de Fondos (automática vía Smart Contract)
-
-Por cada ticket vendido, los fondos se distribuyen así:
-
-| Pool               | %   | Propósito                              |
-| ------------------ | --- | -------------------------------------- |
-| Pool de Rewards    | 25% | Compra de premios para sorteos         |
-| Pool de Swap       | 25% | Fondos para comprar Axies de usuarios  |
-| Quema Directa      | 25% | Envío a burn address de SLP            |
-| Devs y Operaciones | 15% | Infraestructura y desarrollo           |
-| Pool Reward Anual  | 10% | Acumulado para el evento de fin de año |
-
-### 3. Milestones Comunitarios
-
-La app muestra una barra de progreso global. A medida que la comunidad aporta SLP, se desbloquean hitos. Cuando un milestone se alcanza, el sistema compra automáticamente un activo (Axie, Land, ítem) y lo sortea.
-
-### 4. Swap de Axies ("Agujero Negro")
-
-Una vez cerrada la venta de tickets (pasadas las 72 hs), se habilita el módulo de intercambio. Los usuarios pueden entregar sus Axies no deseados a cambio del **Floor Price** actual del mercado. Los Axies recibidos son **liberados permanentemente** (mecánica de Release). Incluye cooldown de 24 hs con opción de pago para saltearlo.
-
-### 5. Evento Anual Legendario
-
-Los usuarios que acumularon los 12 tickets del año pueden mintear una **Llave Anual** y acceder al sorteo especial de fin de año, con premios de mayor valor.
+Este proyecto no da plata como premio. Reinvierte en el ecosistema comprando **Axies y Lands reales** del marketplace como premios de sorteo, quema SLP para reducir el supply circulante, y libera Axies para desaturar el mercado. Todo es transparente, verificable on-chain, y registrado públicamente.
 
 ---
 
-##  Roadmap
+## ⚙️ Ciclo completo de un evento
 
-###  Estado Actual (Pre-V1)
+```
+DÍAS 1–3 │ VENTA DE TICKETS (72 horas)
+         │
+         │  El usuario paga $3 USD en SLP → recibe un NFT ticket (ERC-721)
+         │  Cada compra se divide automáticamente en 5 pools:
+         │    25% → Pool de Recompensas (compra de Axies/Lands para sorteo)
+         │    25% → Pool de Swap (liquidez para comprar Axies de usuarios)
+         │    25% → Quema Directa (SLP a burn address)
+         │    15% → Operaciones y Devs
+         │    10% → Pool Reward Anual
+         │
+         │  Mientras tanto, el "Nivel del Ritual" sube:
+         │    Cada $100 USD acumulados en el Pool de Recompensas = +1 nivel
+         │    Por cada nivel → el sistema compra un Axie o Land de ~$100
+         │    Ese item se agrega como premio del sorteo
+         │    Se registra: qué se compró, TX de compra, precio en SLP
+         │
+DÍA 4    │ VENTANA DE SWAP (24 horas, solo para ticket holders)
+         │
+         │  El usuario entrega un Axie → recibe el floor price actual en SLP
+         │    (del Pool de Swap, mientras haya fondos)
+         │  Cooldown de 24 hs después de cada swap
+         │  Puede pagar ½ floor price en SLP para resetear el cooldown
+         │    Reset se divide: 50% Quema, 40% Devs, 10% Anual
+         │  Si el Pool de Swap se vacía → la ventana cierra antes
+         │
+DÍA 5    │ CIERRE, SORTEO Y QUEMA
+         │
+         │  1. SORTEO: cada premio (Axie/Land de milestones) → wallet ganadora + TX
+         │  2. QUEMA: todo el Pool de Quema → burn address + TX verificable
+         │  3. LIBERACIÓN: cada Axie del swap → Release permanente + TX por cada uno
+         │  4. TODO queda en el registro público del evento
+```
 
-- Estructura base de navegación con Expo Router (5 tabs)
-- Pantallas creadas: Home, Milestone, Perfil, Swap, Especial
-- Tema oscuro con paleta negra y dorado
-- UI placeholder funcional (datos hardcodeados)
-- Bugs conocidos:
-  - Acordeones del Home comparten estado (`showInfo`) → se abren juntos
-  - `_layout.tsx` tiene un fondo marrón residual (`#935f17`) que no corresponde
-  - Color activo del tab bar (`#0A7EA4`) no coincide con la paleta del proyecto
+### Evento Anual (31 de Diciembre)
 
----
-
-###  V1 — Maqueta Visual (Frontend Completo)
-
-**Objetivo:** que la app se vea exactamente como queremos, con navegación fluida y datos simulados realistas. Sin integración real con ninguna API o blockchain.
-
-**Scope:**
-
-- [ ] Corregir bugs existentes (acordeones independientes, colores del tab bar, fondo residual)
-- [ ] Definir y aplicar la paleta de colores definitiva (negro base, dorado como acento primario, rojo fuego como acento secundario)
-- [ ] Rediseñar pantalla **Home**: hero section con estadísticas animadas, countdown del evento, acordeones independientes
-- [ ] Rediseñar pantalla **Milestone**: termómetro de progreso animado, cards de milestone con estados visuales claros (pendiente / en proceso / completado)
-- [ ] Rediseñar pantalla **Perfil**: estado de wallet (conectada/desconectada), grid de tickets, display de llave anual con progreso visual
-- [ ] Diseñar pantalla **Swap**: interfaz de intercambio con card de Axie, precio floor, cooldown timer, botón de skip cooldown
-- [ ] Diseñar pantalla **Especial**: acceso con llave, display del premio anual, estado del sorteo
-- [ ] Datos simulados (mock data) consistentes y realistas en todas las pantallas
-- [ ] Componentes reutilizables: `TicketCard`, `MilestoneCard`, `CountdownTimer`, `ProgressBar`, `WalletBadge`
-
----
-
-###  V2 — Integración de APIs y Funcionalidades
-
-**Objetivo:** conectar la maqueta con datos reales. La app consume APIs externas y el usuario puede interactuar con su wallet, pero sin smart contracts en producción (se usa testnet).
-
-**Scope:**
-
-- [ ] Integración con **WalletConnect / Ronin Wallet** (RF-01 a RF-04)
-  - Conectar y desconectar wallet
-  - Leer dirección pública (RON) y saldo de SLP
-- [ ] Consumo de **API de precio de SLP** (oráculo o CoinGecko/CoinMarketCap) para calcular el precio del ticket en tiempo real
-- [ ] Consumo de **Sky Mavis Marketplace API** para leer el Floor Price de Axies
-- [ ] Lógica de **ventana de 72 hs**: activar/desactivar compra de tickets según tiempo del evento
-- [ ] **Countdown real** basado en timestamp del servidor
-- [ ] Lógica de **cooldown** del swap (24 hs desde el último intercambio)
-- [ ] Lectura de **tickets/NFTs** de la wallet del usuario (inventario real)
-- [ ] Backend básico (Node.js/NestJS) con endpoints para:
-  - Estado del evento activo
-  - Milestones y progreso actual
-  - Historial de transacciones/quemas
-- [ ] Base de datos (PostgreSQL) para logs de eventos y estado de milestones
+- Requisito: tener 1 ticket de **cada mes** del año (no sirven 12 del mismo mes)
+- Quemar los 12 tickets → mintear una **Llave Especial**
+- Timer de 24 horas → sorteo de 3 premios **en SLP**:
+  - 1er premio: 50% del Pool Anual acumulado
+  - 2do premio: 30%
+  - 3er premio: 20%
+- Las transacciones quedan registradas
 
 ---
 
-###  V3 — Beta Funcional (Testnet)
+## 💰 Distribución de fondos
 
-**Objetivo:** versión casi completa funcionando en la testnet de Ronin (Saigon). Permite probar el flujo completo sin dinero real.
+Hay 3 fuentes de ingreso, cada una con distribución diferente:
 
-**Scope:**
+### Por cada compra de ticket ($3 USD en SLP)
 
-- [ ] Deploy de **Smart Contracts en Saigon Testnet**
-  - Contrato de Tickets (ERC-721)
-  - Contrato de distribución de pools
-  - Contrato de burn de SLP
-- [ ] Compra real de tickets en testnet (firma de transacción con Ronin Wallet)
-- [ ] Distribución automática de fondos post-compra
-- [ ] Sistema de **Milestones automáticos**: cron job que detecta cuando se alcanza un hito y actualiza el estado
-- [ ] Mecánica de **Swap completa** en testnet: entrega de Axie → pago de floor price → release del Axie
-- [ ] **Skip de cooldown** con pago en SLP (testnet)
-- [ ] **Minteo de Llave Anual** al acumular 12 tickets
-- [ ] Pantalla de **estadísticas históricas** (total SLP quemado, Axies liberados)
-- [ ] Pruebas de carga y estrés durante la ventana de 72 hs
-- [ ] Auditoría básica de los smart contracts
+| Componente          | %   | Propósito                              |
+|---------------------|-----|----------------------------------------|
+| Pool de Recompensas | 25% | Compra de Axies y Lands para sorteos   |
+| Pool de Swap        | 25% | Fondos para comprar Axies de usuarios  |
+| Quema Directa       | 25% | Envío irreversible a burn address      |
+| Operaciones y Devs  | 15% | Mantenimiento e infraestructura        |
+| Pool Reward Anual   | 10% | Se acumula para el evento de fin de año|
 
----
+### Por cada reset de cooldown (½ floor price en SLP)
 
-##  Stack Técnico
+| Componente          | %   | Propósito                              |
+|---------------------|-----|----------------------------------------|
+| Quema Directa       | 50% | Envío irreversible a burn address      |
+| Operaciones y Devs  | 40% | Mantenimiento e infraestructura        |
+| Pool Reward Anual   | 10% | Se acumula para fin de año             |
 
-| Capa              | Tecnología                               |
-| ----------------- | ---------------------------------------- |
-| Frontend          | React Native + Expo (TypeScript)         |
-| Navegación        | Expo Router                              |
-| Web3 / Wallet     | WalletConnect + Web3Modal                |
-| Blockchain        | Ronin Network (Mainnet / Saigon Testnet) |
-| Smart Contracts   | Solidity ^0.8.0 (ERC-721, ERC-20)        |
-| Interacción Web3  | Viem o Ethers.js v6                      |
-| Backend           | Node.js + NestJS                         |
-| Base de datos     | PostgreSQL                               |
-| API de mercado    | Sky Mavis Marketplace API                |
-| Precios de tokens | CoinGecko API / Oráculo on-chain         |
+### Por cada minteo de Llave Anual (12 tickets)
+
+| Componente          | %   | Propósito                              |
+|---------------------|-----|----------------------------------------|
+| Pool de Recompensas | 40% | Adquisición de activos de alto valor   |
+| Quema Directa       | 40% | Envío irreversible a burn address      |
+| Operaciones y Devs  | 20% | Mantenimiento e infraestructura        |
 
 ---
 
-##  Estructura del Proyecto
+## 🗺️ Navegación de la app
+
+### Tabs principales (barra inferior)
+
+| Tab        | Archivo                    | Función                                                      |
+|------------|----------------------------|--------------------------------------------------------------|
+| **HOME**   | `app/(tabs)/index.tsx`     | Filosofía, stats globales, pools, cómo funciona, últimos 3 rituales, links externos |
+| **GOAL**   | `app/(tabs)/milestone.tsx` | Nivel del Ritual, barra XP, milestones, CTA de compra de ticket |
+| **1P**     | `app/(tabs)/profile.tsx`   | Login con Ronin Wallet, tickets, llaves, inventario          |
+| **SWAP**   | `app/(tabs)/swap.tsx`      | Intercambio de Axies, cooldown, skip cooldown                |
+| **BOSS**   | `app/(tabs)/special.tsx`   | Evento Anual, llave, premios en SLP                          |
+
+### Páginas de rituales (Stack navigation)
+
+| Ruta                             | Archivo                            | Función                                          |
+|----------------------------------|------------------------------------|--------------------------------------------------|
+| `/ritual`                        | `app/ritual/index.tsx`             | Lista de todos los rituales realizados            |
+| `/ritual/[id]`                   | `app/ritual/[id]/index.tsx`        | Detalle completo de un ritual (4 tabs)            |
+| `/ritual/[id]/participants`      | `app/ritual/[id]/participants.tsx` | Lista de wallets participantes + tickets          |
+| `/ritual/[id]/axies`             | `app/ritual/[id]/axies.tsx`        | Lista completa de Axies liberados + TX            |
+
+### Detalle de un ritual — 4 tabs
+
+| Tab         | Contenido                                                                    |
+|-------------|------------------------------------------------------------------------------|
+| **ACTAS**   | Stats del evento, datos del ticket, info del swap, wallet pública, participantes (link), axies liberados (desplegable) |
+| **PREMIOS** | Milestones con filtros (por nivel y por monto), item comprado (link al marketplace), TX de compra, wallet ganadora, TX de entrega |
+| **FONDOS**  | Distribución por pool con USD y %, detalle y TX de cada movimiento           |
+| **GRÁFICO** | Chart de TradingView embebido (SLP/USD, ±2 días del evento)                  |
+
+---
+
+## 📁 Estructura del proyecto
 
 ```
 app/
 ├── (tabs)/
-│   ├── index.tsx        # Home — estadísticas globales y acordeones informativos
-│   ├── milestone.tsx    # Progreso comunitario y milestones desbloqueados
-│   ├── profile.tsx      # Perfil de usuario, tickets y bolsa
-│   ├── swap.tsx         # Intercambio de Axies (Agujero Negro)
-│   ├── special.tsx      # Evento anual legendario (requiere llave)
-│   └── _layout.tsx      # Configuración de la barra de tabs
-├── _layout.tsx          # Layout raíz
-assets/
-components/
-├── ui/                  # Componentes base (IconSymbol, etc.)
-├── TicketCard.tsx       # [pendiente V1]
-├── MilestoneCard.tsx    # [pendiente V1]
-├── CountdownTimer.tsx   # [pendiente V1]
-├── ProgressBar.tsx      # [pendiente V1]
-└── WalletBadge.tsx      # [pendiente V1]
+│   ├── _layout.tsx          # Configuración de la barra de tabs
+│   ├── index.tsx            # Home
+│   ├── milestone.tsx        # Milestones y nivel del ritual
+│   ├── profile.tsx          # Perfil de usuario
+│   ├── swap.tsx             # Intercambio de Axies
+│   └── special.tsx          # Evento anual legendario
+├── ritual/
+│   ├── index.tsx            # Lista de todos los rituales (Crónica)
+│   └── [id]/
+│       ├── index.tsx        # Detalle de un ritual (4 tabs)
+│       ├── participants.tsx # Lista de participantes
+│       └── axies.tsx        # Lista de Axies liberados
+├── _layout.tsx              # Root layout (Stack + ThemeProvider)
+│
 constants/
-└── theme.ts             # Paleta de colores y tipografía
-hooks/
+└── ritualData.ts            # Data mock, paleta de colores, tipos, helpers
+│
+components/
+├── themed-text.tsx
+├── themed-view.tsx
+└── ui/
+    └── icon-symbol.tsx
+│
+assets/
+└── images/
 ```
 
 ---
 
-##  Requerimientos Funcionales Clave
+## 🗺️ Roadmap
 
-| ID            | Descripción                                                                | Versión |
-| ------------- | -------------------------------------------------------------------------- | ------- |
-| RF-01 a RF-04 | Conexión y desconexión de Ronin Wallet via WalletConnect                   | V2      |
-| RF-05 a RF-09 | Compra de tickets (ventana 72 hs, precio en SLP, NFT ERC-721)              | V2/V3   |
-| RF-10         | Distribución automática de fondos en pools via Smart Contract              | V3      |
-| RF-11 a RF-14 | Sistema de milestones con barra de progreso y compra automática de premios | V2/V3   |
-| RF-15 a RF-20 | Módulo de Swap de Axies con cooldown y skip de cooldown                    | V2/V3   |
-| RF-21 a RF-23 | Perfil de usuario, inventario de tickets y estadísticas globales           | V2      |
+### ✅ V1 — Maqueta Visual (estado actual)
+
+La app se ve y navega como queremos. Todo con datos hardcodeados.
+
+- [x] Estética Dark Retro Arcane (negro + rojo carmesí + dorado oscuro)
+- [x] Arcade header: "FYNOLT'S CULT", versión, número de ritual
+- [x] Home: filosofía, stats, 3 tablas de distribución, pools en carrusel, timeline, últimos 3 rituales
+- [x] Navegación completa: `/ritual` (lista) → `/ritual/[id]` (detalle con 4 tabs) → `/ritual/[id]/participants` → `/ritual/[id]/axies`
+- [x] Premios con filtros por nivel y monto, links al marketplace, TX verificables
+- [x] Fondos con desglose por pool y TX
+- [x] Participantes con wallets y tickets
+- [x] Axies liberados con IDs y TX de liberación
+- [x] Gráfico TradingView embebido
+- [x] Responsive: carrusel en mobile, grid en web
+- [ ] Rediseño de Swap (mecánica completa + cooldown + skip)
+- [ ] Rediseño de Special (evento anual, 3 premios SLP, llave)
+- [ ] Rediseño de Profile ("Logearse" con Ronin Wallet)
+- [ ] Rediseño de Milestone (sistema de niveles integrado)
+
+### 🔌 V2 — Integración de APIs
+
+- [ ] Ronin Wallet via WalletConnect (login, saldo SLP, dirección)
+- [ ] API de precio SLP en tiempo real (CoinGecko)
+- [ ] Sky Mavis Marketplace API para floor price
+- [ ] Countdown real de 72 hs (timestamp del servidor)
+- [ ] Cooldown real del swap (24 hs)
+- [ ] Lectura de NFTs/tickets de la wallet
+- [ ] Backend (Node.js/NestJS) + PostgreSQL
+
+### 🧪 V3 — Beta Funcional (Testnet Saigon)
+
+- [ ] Smart Contracts: Tickets (ERC-721), distribución, burn
+- [ ] Compra real de tickets en testnet
+- [ ] Distribución automática de fondos
+- [ ] Milestones automáticos
+- [ ] Swap completo en testnet
+- [ ] Minteo de Llave Anual
+- [ ] Auditoría básica de contratos
 
 ---
 
-##  Setup — Primera vez en una PC nueva
+## 🧱 Stack técnico
+
+| Capa              | Tecnología                               |
+|-------------------|------------------------------------------|
+| Frontend          | React Native + Expo SDK 56 (TypeScript)  |
+| Navegación        | Expo Router (file-based routing)         |
+| Gráficos          | TradingView (WebView embebido)           |
+| Iconos            | @expo/vector-icons (Ionicons)            |
+| SVG               | react-native-svg                         |
+| Web3 / Wallet     | WalletConnect + Web3Modal (V2)           |
+| Blockchain        | Ronin Network (Mainnet / Saigon Testnet) |
+| Smart Contracts   | Solidity ^0.8.0 (ERC-721, ERC-20) (V3)  |
+| Backend           | Node.js + NestJS (V2)                    |
+| Base de datos     | PostgreSQL (V2)                          |
+| API de mercado    | Sky Mavis Marketplace API (V2)           |
+| Precios de tokens | CoinGecko API (V2)                       |
+
+---
+
+## 🚀 Setup — Primera vez en una PC nueva
 
 ### Prerequisitos
 
-Antes de clonar, asegurate de tener instalado:
+| Herramienta                    | Versión mínima  | Verificar con |
+|--------------------------------|-----------------|---------------|
+| [Node.js](https://nodejs.org/) | 18.x o superior | `node -v`     |
+| npm                            | 9.x o superior  | `npm -v`      |
+| [Expo Go](https://expo.dev/go) | última versión  | App en celular|
 
-| Herramienta                    | Versión mínima  | Verificar con                   |
-| ------------------------------ | --------------- | ------------------------------- |
-| [Node.js](https://nodejs.org/) | 18.x o superior | `node -v`                       |
-| npm                            | 9.x o superior  | `npm -v`                        |
-| [Expo Go](https://expo.dev/go) | última versión  | App del celular (iOS o Android) |
-
-> **No se necesita** Android Studio, Xcode, ni ningún emulador. Con Node.js y Expo Go en el celular es suficiente.
-
----
+No se necesita Android Studio, Xcode, ni emuladores.
 
 ### Paso a paso
 
 ```bash
-# 1. Clonar el repositorio
+# 1. Clonar
 git clone https://github.com/Borhamus/Quema_de_SLP.git
-
-# 2. Entrar a la carpeta del proyecto
 cd Quema_de_SLP
 
-# 3. Instalar dependencias
-#    (node_modules nunca se versiona, hay que instalarlo siempre en cada PC nueva)
+# 2. Instalar dependencias
 npm install
 
-# 4. Iniciar el servidor de desarrollo
+# 3. Verificar paquetes actualizados
+npx expo install --check
+
+# 4. Iniciar servidor de desarrollo
 npx expo start
 ```
 
-Una vez que corre `npx expo start`, la terminal muestra un **QR code** y un menú de opciones.
+### Correr en Expo Go (celular)
 
----
+1. Instalar **Expo Go** ([iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
+2. PC y celular en la **misma red Wi-Fi**
+3. Escanear el QR de la terminal
+4. Si no conecta → presionar `s` para usar **tunnel**
 
-### Opción A — Expo Go en el celular (recomendado para testear en dispositivo real)
-
-1. Instalá la app **Expo Go** en tu celular ([iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
-2. Asegurate de que el celular y la PC estén en la **misma red Wi-Fi**
-3. Escaneá el QR que aparece en la terminal:
-   - **Android:** con la cámara del celular o directamente desde Expo Go
-   - **iOS:** con la cámara nativa, que detecta el QR automáticamente
-4. La app se abre en Expo Go. Cada vez que guardes un archivo, se recarga automáticamente (Fast Refresh)
-
->  Si el QR no conecta, probá presionar `s` en la terminal para cambiar a **Expo tunnel** (funciona aunque estén en redes distintas, pero es más lento).
-
----
-
-### Opción B — Web en el navegador
+### Correr en Web (navegador)
 
 ```bash
-# Desde el menú de expo start, presionar:
-w
-
-# O directamente al iniciar:
+# Presionar 'w' en el menú, o directamente:
 npx expo start --web
 ```
 
-Abre la app en `http://localhost:8081` en tu navegador. Útil para desarrollo rápido, aunque algunos componentes nativos pueden verse distinto o no funcionar igual que en el celular.
+### Shortcuts del servidor
+
+| Key | Acción                        |
+|-----|-------------------------------|
+| `r` | Reload                        |
+| `w` | Abrir en navegador            |
+| `s` | Cambiar modo (LAN/tunnel)     |
+| `j` | Debugger de JavaScript        |
+| `?` | Ver todos los comandos        |
+
+### Errores comunes
+
+| Error                                                   | Solución                                              |
+|---------------------------------------------------------|-------------------------------------------------------|
+| `command not found: expo`                               | Usar `npx expo` (no instalar globalmente)             |
+| `Unable to find expo in this project`                   | Correr `npm install`                                  |
+| QR no conecta en Expo Go                                | Presionar `s` para tunnel                             |
+| Puerto 8081 ocupado                                     | `npx expo start --port 8082`                          |
+| `expo-router not compatible with react-navigation`      | Cambiar imports a `expo-router/react-navigation`      |
 
 ---
 
-### Flujo de trabajo diario (después del setup inicial)
+## ⚠️ Nota sobre Expo SDK 56+
 
-```bash
-# Desde la carpeta del proyecto:
-npx expo start
+A partir de SDK 56, `expo-router` ya no acepta imports de `@react-navigation/*`. Se reemplazan por equivalentes de `expo-router`:
 
-# Shortcuts útiles dentro del servidor:
-#   r  →  Reload de la app
-#   s  →  Cambiar entre Expo Go / tunnel / local
-#   w  →  Abrir en el navegador
-#   j  →  Abrir el debugger de JavaScript
-#   ?  →  Ver todos los comandos disponibles
+```typescript
+// ❌ SDK 55
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+
+// ✅ SDK 56+
+import { DarkTheme, ThemeProvider } from 'expo-router/react-navigation';
 ```
 
----
-
-### Posibles errores comunes
-
-| Error                                 | Causa                             | Solución                                                          |
-| ------------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
-| `command not found: expo`             | Expo CLI no instalado globalmente | Usar siempre `npx expo` (ya está en el proyecto como dependencia) |
-| `Unable to find expo in this project` | Faltó correr `npm install`        | Correr `npm install` en la carpeta del proyecto                   |
-| QR no conecta en Expo Go              | PC y celular en redes distintas   | Presionar `s` en la terminal para usar tunnel                     |
-| Puerto 8081 ocupado                   | Otro proceso usando el puerto     | Cerrar la otra terminal o usar `npx expo start --port 8082`       |
+La API es idéntica, solo cambia el módulo de origen.
 
 ---
 
-##  Equipo
+## 👥 Equipo
 
-Proyecto universitario — Facultad de [nombre de la facultad].
+Proyecto universitario — Fynolt's Cult.
