@@ -9,7 +9,7 @@ import { fmtSlp } from "@/hooks/use-slp-price";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import WebView from "react-native-webview";
 
@@ -44,11 +44,13 @@ type RewardItem = {
   status: string;
   draw_order: number;
   winner_wallet: string | null;
+  winner_ticket_id: string | null;
   delivery_tx_hash: string | null;
   delivery_tx_url: string | null;
+  tickets: { qr_code: string; paid_slp: number | null } | null;
 };
 
-type ReleasedAxie = { axie_id: string; tx_hash: string | null; tx_url: string | null };
+type ReleasedAxie = { axie_id: string; tx_hash: string | null; tx_url: string | null; release_reason: string };
 type FundRow = { name: string; emoji: string; color_hex: string; pct_of_ticket: number; total_slp: number; total_usd_ref: number; detail: string | null; tx_hash: string | null; tx_url: string | null };
 
 export default function RitualDetailScreen() {
@@ -64,6 +66,7 @@ export default function RitualDetailScreen() {
   const [axies, setAxies] = useState<ReleasedAxie[]>([]);
   const [funds, setFunds] = useState<FundRow[]>([]);
   const [participantsCount, setParticipantsCount] = useState(0);
+  const [displayNames, setDisplayNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
@@ -80,16 +83,34 @@ export default function RitualDetailScreen() {
     setEvent(eventData);
 
     const [{ data: rewardsData }, { data: axiesData }, { data: fundsData }, { count }] = await Promise.all([
-      supabase.from("level_rewards_unlocked").select("id, level_reached, amount_usd, slp_equivalent, status, draw_order, winner_wallet, delivery_tx_hash, delivery_tx_url").eq("event_id", id).order("draw_order"),
-      supabase.from("released_axies").select("axie_id, tx_hash, tx_url").eq("event_id", id),
+      supabase.from("level_rewards_unlocked")
+        .select("id, level_reached, amount_usd, slp_equivalent, status, draw_order, winner_wallet, winner_ticket_id, delivery_tx_hash, delivery_tx_url, tickets:winner_ticket_id(qr_code, paid_slp)")
+        .eq("event_id", id).order("draw_order"),
+      supabase.from("released_axies").select("axie_id, tx_hash, tx_url, release_reason").eq("event_id", id),
       supabase.from("event_funds").select("name, emoji, color_hex, pct_of_ticket, total_slp, total_usd_ref, detail, tx_hash, tx_url").eq("event_id", id),
       supabase.from("participants").select("id", { count: "exact", head: true }).eq("event_id", id),
     ]);
 
-    setRewards(rewardsData ?? []);
+    setRewards((rewardsData as any) ?? []);
     setAxies(axiesData ?? []);
     setFunds(fundsData ?? []);
     setParticipantsCount(count ?? 0);
+
+    // Nombres de perfil de las wallets ganadoras (si tienen uno cargado)
+    const winnerWallets = Array.from(
+      new Set((rewardsData ?? []).map((r: any) => r.winner_wallet).filter(Boolean))
+    );
+    if (winnerWallets.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("wallet_address, display_name")
+        .in("wallet_address", winnerWallets);
+      const map: Record<string, string> = {};
+      (profilesData ?? []).forEach((p) => { if (p.display_name) map[p.wallet_address] = p.display_name; });
+      setDisplayNames(map);
+    } else {
+      setDisplayNames({});
+    }
   }, [id]);
 
   useEffect(() => {
@@ -116,10 +137,10 @@ export default function RitualDetailScreen() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "actas",   label: "⚔️ ACTAS"   },
-    { key: "premios", label: "🏆 PREMIOS" },
-    { key: "fondos",  label: "💰 FONDOS"  },
-    { key: "chart",   label: "📈 GRÁFICO" },
+    { key: "actas",     label: "⚔️ ACTAS"     },
+    { key: "premios",   label: "💸 GANADORES" },
+    { key: "fondos",    label: "💰 FONDOS"    },
+    { key: "chart",     label: "📈 GRÁFICO"   },
   ];
 
   const levels = Array.from(new Set(rewards.map(r => r.level_reached))).sort((a, b) => a - b);
@@ -163,7 +184,7 @@ export default function RitualDetailScreen() {
             <>
               <View style={s.grid}>
                 {[
-                  { val: `🔥 quema`, key: "VER EN FONDOS",      color: C.ember   },
+                  { val: `🔥 ${fmtSlp(funds.find(f => f.name === "Quema Directa")?.total_slp ?? 0)}`, key: "SLP QUEMADOS",      color: C.ember   },
                   { val: `⚡ ${event.axies_released}`,   key: "AXIES LIBERADOS",  color: C.crimson },
                   { val: `⚔️ ${event.ritual_level}`, key: "NIVEL ALCANZADO",   color: C.goldBrt },
                   { val: `👥 ${participantsCount}`, key: "PARTICIPANTES", color: C.slate },
@@ -181,10 +202,18 @@ export default function RitualDetailScreen() {
                   Axies swappeados: <ThemedText style={{ color: C.crimson, fontWeight: "700" }}>{event.axies_swapped}</ThemedText>
                 </ThemedText>
                 <ThemedText style={s.infoLine}>
+                  Axies entregados para el cooldown: <ThemedText style={{ color: C.crimson, fontWeight: "700" }}>
+                    {axies.filter(a => a.release_reason === "cooldown_release").length}
+                  </ThemedText>
+                </ThemedText>
+                <ThemedText style={s.infoLine}>
                   Pool de Swap gastado: <ThemedText style={{ color: C.crimson, fontWeight: "700" }}>{fmtSlp(event.swap_pool_spent_slp)} SLP</ThemedText>
                 </ThemedText>
                 <ThemedText style={s.infoLine}>
                   Cooldowns reseteados: <ThemedText style={{ color: C.crimson, fontWeight: "700" }}>{event.cooldown_resets}</ThemedText>
+                </ThemedText>
+                <ThemedText style={[s.infoLine, { marginTop: 6, borderTopWidth: 1, borderTopColor: C.borderMid, paddingTop: 6 }]}>
+                  Total Axies recibidos: <ThemedText style={{ color: C.goldBrt, fontWeight: "900" }}>{axies.length}</ThemedText>
                 </ThemedText>
               </View>
 
@@ -295,9 +324,29 @@ export default function RitualDetailScreen() {
                     {r.status === "entregada" && r.winner_wallet ? (
                       <>
                         <View style={s.msWinnerBox}>
+                          <ThemedText style={{ color: C.greenBrt, fontSize: 12, fontWeight: "700", marginBottom: 8, lineHeight: 18 }}>
+                            🎉 ¡Felicidades! La wallet{" "}
+                            <ThemedText style={{ fontWeight: "900" }}>
+                              {displayNames[r.winner_wallet] ?? `${r.winner_wallet.slice(0, 8)}...${r.winner_wallet.slice(-6)}`}
+                            </ThemedText>
+                            , dueña del ticket{" "}
+                            <ThemedText style={{ fontWeight: "900" }}>{r.tickets?.qr_code ?? "—"}</ThemedText>
+                            , ganó este premio.
+                          </ThemedText>
                           <ThemedText style={s.msWinnerLabel}>WALLET GANADORA DEL SORTEO</ThemedText>
                           <ThemedText style={s.msWinnerAddr}>{r.winner_wallet}</ThemedText>
                         </View>
+
+                        <View style={s.msWinnerBox}>
+                          <ThemedText style={s.msWinnerLabel}>TICKET GANADOR</ThemedText>
+                          <ThemedText style={s.msWinnerAddr}>{r.tickets?.qr_code ?? "—"}</ThemedText>
+                          {r.tickets?.paid_slp != null && (
+                            <ThemedText style={{ color: C.slate, fontSize: 9, marginTop: 2 }}>
+                              Comprado por {fmtSlp(r.tickets.paid_slp)} SLP
+                            </ThemedText>
+                          )}
+                        </View>
+
                         {r.delivery_tx_url && (
                           <TouchableOpacity style={s.msTxRow} onPress={() => Linking.openURL(r.delivery_tx_url!)}>
                             <ThemedText style={s.msTxLabel}>TX ENTREGA AL GANADOR</ThemedText>
@@ -372,15 +421,23 @@ export default function RitualDetailScreen() {
               </View>
 
               <View style={s.chartBox}>
-                <WebView
-                  source={{ html: chartHtml(event.date_start) }}
-                  style={{ flex: 1, backgroundColor: "#000" }}
-                  scrollEnabled={false}
-                  javaScriptEnabled
-                  domStorageEnabled
-                  originWhitelist={["*"]}
-                  backgroundColor="#000000"
-                />
+                {Platform.OS === "web" ? (
+                  // @ts-ignore — <iframe> es un elemento DOM real, válido en build web
+                  <iframe
+                    srcDoc={chartHtml(event.date_start)}
+                    style={{ border: 0, width: "100%", height: "100%", backgroundColor: "#000" }}
+                  />
+                ) : (
+                  <WebView
+                    source={{ html: chartHtml(event.date_start) }}
+                    style={{ flex: 1, backgroundColor: "#000" }}
+                    scrollEnabled={false}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    originWhitelist={["*"]}
+                    backgroundColor="#000000"
+                  />
+                )}
               </View>
             </>
           )}

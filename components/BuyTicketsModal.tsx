@@ -9,13 +9,13 @@ import { fmtSlp, usdToSlp } from "@/hooks/use-slp-price";
 import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 import {
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const C = {
@@ -69,7 +69,7 @@ export function BuyTicketsModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const qtyNum = Math.max(1, Math.min(50, parseInt(qty || "1", 10) || 1));
+  const qtyNum = Math.max(1, Math.min(1000, parseInt(qty || "1", 10) || 1));
   const totalUsd = activeEvent.ticket_price_usd * qtyNum;
   const totalSlp = usdToSlp(totalUsd, slpPrice);
 
@@ -79,20 +79,19 @@ export function BuyTicketsModal({
     setSuccess(null);
 
     try {
-      // Compra secuencial — cada ticket es una llamada separada a
-      // buy_ticket() porque cada uno puede disparar su propia subida
-      // de nivel (la función ya maneja eso de forma atómica una vez
-      // por ticket).
-      for (let i = 0; i < qtyNum; i++) {
-        const slpForThisTicket = usdToSlp(activeEvent.ticket_price_usd, slpPrice);
-        const { error: rpcError } = await supabase.rpc("buy_ticket", {
-          p_event_id: activeEvent.id,
-          p_wallet_address: address,
-          p_paid_slp: slpForThisTicket,
-          p_tx_hash: "SIM-TX-" + Date.now() + "-" + i,
-        });
-        if (rpcError) throw rpcError;
-      }
+      // Un solo viaje a la base para todos los tickets — la función
+      // consulta el precio de SLP UNA vez, no una por ticket. Por eso
+      // comprar 1000 de una anda bien en vez de sentirse "colgado".
+      const slpForThisTicket = usdToSlp(activeEvent.ticket_price_usd, slpPrice);
+      const { error: rpcError } = await supabase.rpc("buy_tickets_bulk", {
+        p_event_id: activeEvent.id,
+        p_wallet_address: address,
+        p_qty: qtyNum,
+        p_paid_slp_per_ticket: slpForThisTicket,
+        p_tx_hash_prefix: "SIM-TX-" + Date.now(),
+      });
+      if (rpcError) throw rpcError;
+
       setSuccess(`✓ ${qtyNum} ticket${qtyNum > 1 ? "s" : ""} comprado${qtyNum > 1 ? "s" : ""} con éxito.`);
       onBought();
     } catch (e: any) {
@@ -118,7 +117,7 @@ export function BuyTicketsModal({
               onChangeText={setQty}
               keyboardType="numeric"
               style={bm.qtyInput}
-              maxLength={2}
+              maxLength={4}
             />
             <TouchableOpacity style={bm.qtyBtn} onPress={() => setQty(String(qtyNum + 1))} disabled={qtyNum >= 50}>
               <Text style={bm.qtyBtnTxt}>+</Text>

@@ -51,6 +51,7 @@ type TicketRow = {
   purchased_at: string;
   event_number: number;
   event_label: string;
+  seq_number: number;
 };
 
 type AnnualKeyRow = {
@@ -245,7 +246,10 @@ function TicketCard({ ticket, onPressQr }: { ticket: TicketRow; onPressQr: () =>
         <PixelTicket size={36} dim={ticket.status !== "vivo"} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={tkc.eventName}>Ritual #{ticket.event_number} — {ticket.event_label}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={tkc.seqBadge}><Text style={tkc.seqTxt}>#{ticket.seq_number}</Text></View>
+          <Text style={tkc.eventName}>Ritual #{ticket.event_number} — {ticket.event_label}</Text>
+        </View>
         <Text style={tkc.qr}>{ticket.qr_code}</Text>
         <Text style={[tkc.statusTxt, { color: info.color }]}>● {info.label}</Text>
         <Text style={tkc.statusDesc}>{info.desc}</Text>
@@ -261,6 +265,8 @@ function TicketCard({ ticket, onPressQr }: { ticket: TicketRow; onPressQr: () =>
 const tkc = StyleSheet.create({
   card: { flexDirection: "row", gap: 12, borderWidth: 1.5, backgroundColor: C.ink, padding: 10, marginBottom: 8, alignItems: "center" },
   iconCol: { width: 44, alignItems: "center" },
+  seqBadge: { borderWidth: 1, borderColor: C.amber, paddingHorizontal: 5, paddingVertical: 1 },
+  seqTxt: { color: C.amber, fontFamily: MONO, fontSize: 9, fontWeight: "900" },
   eventName: { color: C.parchment, fontFamily: MONO, fontSize: 11, fontWeight: "700" },
   qr: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, marginTop: 2 },
   statusTxt: { fontFamily: MONO, fontSize: 9, fontWeight: "900", marginTop: 4, letterSpacing: 0.5 },
@@ -546,6 +552,13 @@ export default function ProfileScreen() {
       .order("purchased_at", { ascending: false });
 
     if (ticketsData) {
+      // Números de ticket: el más viejo es #1, ascendente por orden de compra —
+      // independiente del orden en que se muestran (más nuevo primero).
+      const sortedAsc = [...ticketsData].sort((a: any, b: any) =>
+        new Date(a.purchased_at).getTime() - new Date(b.purchased_at).getTime()
+      );
+      const seqByTicketId = new Map(sortedAsc.map((t: any, i: number) => [t.id, i + 1]));
+
       setTickets(
         ticketsData.map((t: any) => ({
           id: t.id,
@@ -554,6 +567,7 @@ export default function ProfileScreen() {
           purchased_at: t.purchased_at,
           event_number: t.events?.event_number ?? 0,
           event_label: t.events?.label ?? "—",
+          seq_number: seqByTicketId.get(t.id) ?? 0,
         }))
       );
     }
@@ -702,7 +716,39 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View>
-            {tickets.map(t => <TicketCard key={t.id} ticket={t} onPressQr={() => setSelectedTicketForQr(t)} />)}
+            {(() => {
+              const activos = tickets.filter(t => t.status === "vivo");
+              const pasados = tickets.filter(t => t.status !== "vivo");
+              return (
+                <>
+                  <View style={styles.sectionHead}>
+                    <Text style={[styles.sectionTitle, { fontSize: 10, color: C.greenBrt }]}>● EVENTO ACTIVO</Text>
+                    <View style={styles.sectionLine} />
+                    <Text style={styles.sectionCount}>{String(activos.length).padStart(2, "0")}</Text>
+                  </View>
+                  {activos.length === 0 ? (
+                    <Text style={{ color: C.parchmentDim, fontFamily: MONO, fontSize: 10, marginBottom: 14 }}>
+                      No tenés tickets de un evento en curso ahora mismo.
+                    </Text>
+                  ) : (
+                    activos.map(t => <TicketCard key={t.id} ticket={t} onPressQr={() => setSelectedTicketForQr(t)} />)
+                  )}
+
+                  <View style={[styles.sectionHead, { marginTop: 14 }]}>
+                    <Text style={[styles.sectionTitle, { fontSize: 10, color: C.parchmentDim }]}>◐ EVENTOS PASADOS</Text>
+                    <View style={styles.sectionLine} />
+                    <Text style={styles.sectionCount}>{String(pasados.length).padStart(2, "0")}</Text>
+                  </View>
+                  {pasados.length === 0 ? (
+                    <Text style={{ color: C.parchmentDim, fontFamily: MONO, fontSize: 10 }}>
+                      Todavía no tenés tickets de eventos ya finalizados.
+                    </Text>
+                  ) : (
+                    pasados.map(t => <TicketCard key={t.id} ticket={t} onPressQr={() => setSelectedTicketForQr(t)} />)
+                  )}
+                </>
+              );
+            })()}
           </View>
         )}
 

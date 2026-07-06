@@ -513,9 +513,6 @@ const swapAx = StyleSheet.create({
 
 // ── ESTADO: SORTEANDO ─────────────────────────────────────────
 function DrawingStateActions({ eventId, onChanged, onComplete }: { eventId: string | null; onChanged: () => void; onComplete: () => void }) {
-  const drawNext = useRpcAction<{ p_event_id: string }>("draw_next_reward");
-  const simulateBurn = useRpcAction<{ p_event_id: string }>("test_simulate_burn");
-  const releaseAxies = useRpcAction<{ p_event_id: string }>("test_release_swapped_axies");
   const finalizeEvent = useRpcAction<{ p_event_id: string; p_reason: string }>("test_finalize_event");
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
@@ -531,23 +528,6 @@ function DrawingStateActions({ eventId, onChanged, onComplete }: { eventId: stri
 
   useEffect(() => { checkPending(); }, [checkPending]);
 
-  const runParallelClose = async () => {
-    if (!eventId) return;
-    const drawAllRewards = async () => {
-      while (true) {
-        const { data } = await drawNext.run({ p_event_id: eventId });
-        if (!data?.success) break;
-      }
-    };
-    await Promise.all([
-      drawAllRewards(),
-      simulateBurn.run({ p_event_id: eventId }),
-      releaseAxies.run({ p_event_id: eventId }),
-    ]);
-    await checkPending();
-    onChanged();
-  };
-
   const handleFinalize = async (reason: string) => {
     if (!eventId) return;
     await finalizeEvent.run({ p_event_id: eventId, p_reason: reason });
@@ -560,30 +540,23 @@ function DrawingStateActions({ eventId, onChanged, onComplete }: { eventId: stri
       <ThemedText style={{ color: C.parchment, fontSize: 11 }}>
         Rewards pendientes de sorteo: <ThemedText style={{ color: C.ember, fontWeight: "900" }}>{pendingCount ?? "—"}</ThemedText>
       </ThemedText>
-
-      <ActionButton
-        label="SORTEAR + QUEMAR + LIBERAR (en paralelo)"
-        icon="⚡"
-        description="Las 3 operaciones se disparan a la vez, como en producción"
-        color={C.ember}
-        loading={drawNext.loading || simulateBurn.loading || releaseAxies.loading}
-        disabled={!eventId}
-        onPress={runParallelClose}
-      />
-      <ResultBox result={{ quema: simulateBurn.result, liberacion: releaseAxies.result }} error={simulateBurn.error ?? releaseAxies.error} />
+      <ThemedText style={{ color: C.slate, fontSize: 9 }}>
+        No hace falta sortear/quemar/liberar a mano acá — "FINALIZAR" ya hace las 3 cosas solo,
+        de forma atómica, exactamente igual que en producción.
+      </ThemedText>
 
       <ThemedText style={{ color: C.slate, fontSize: 10, marginTop: 6 }}>
         Elegí con qué motivo se cierra (queda grabado en el evento, se ve en el checklist):
       </ThemedText>
       <View style={{ gap: 8 }}>
         <ActionButton label="FINALIZAR — motivo: manual (todo salió bien)" icon="🏁" color={C.greenBrt}
-          loading={finalizeEvent.loading} disabled={!eventId || (pendingCount ?? 1) > 0}
+          loading={finalizeEvent.loading} disabled={!eventId}
           onPress={() => handleFinalize("manual")} />
         <ActionButton label="FINALIZAR — motivo: tiempo agotado" icon="⏰" color={C.gold}
-          loading={finalizeEvent.loading} disabled={!eventId || (pendingCount ?? 1) > 0}
+          loading={finalizeEvent.loading} disabled={!eventId}
           onPress={() => handleFinalize("tiempo_agotado")} />
         <ActionButton label="FINALIZAR — motivo: fondos agotados" icon="💸" color={C.crimson}
-          loading={finalizeEvent.loading} disabled={!eventId || (pendingCount ?? 1) > 0}
+          loading={finalizeEvent.loading} disabled={!eventId}
           onPress={() => handleFinalize("fondos_agotados")} />
       </View>
       <ResultBox result={finalizeEvent.result} error={finalizeEvent.error} />
@@ -945,7 +918,34 @@ export default function TestScreen() {
 
   const handleSelectState = async (state: StateKey) => {
     if (!selectedEventId) return;
-    if (state === "sorteando") { setIsDrawingPhase(true); return; }
+    if (state === currentState) return; // ya estás ahí, no hacer nada
+
+    if (state === "completado") {
+      // "Completado" solo se puede llegar de verdad haciendo FINALIZAR
+      // (que corre el sorteo + quema + liberación + fondos). Saltar acá
+      // directo deja el evento en un estado roto a medio cerrar.
+      alert('No podés saltar directo a "Completado" — andá a SORTEANDO y usá uno de los botones FINALIZAR.');
+      return;
+    }
+
+    // Solo se puede avanzar/retroceder UN paso por vez, no saltar a
+    // cualquier lado del selector con un click — así un click sin
+    // querer no te deja en un estado lejano e inesperado.
+    const currentIndex = STATES.findIndex((s) => s.key === currentState);
+    const targetIndex = STATES.findIndex((s) => s.key === state);
+    if (currentIndex >= 0 && Math.abs(targetIndex - currentIndex) > 1) {
+      alert(`No podés saltar de "${currentState?.toUpperCase()}" directo a "${state.toUpperCase()}" — movete de a un paso por vez.`);
+      return;
+    }
+
+    if (state === "sorteando") {
+      if (!confirm('¿Pasar a SORTEANDO? La venta de tickets y el swap quedan cerrados desde acá.')) return;
+      setIsDrawingPhase(true);
+      return;
+    }
+
+    if (!confirm(`¿Seguro que querés pasar el evento a "${state.toUpperCase()}"? Esto puede afectar tickets o ventas en curso.`)) return;
+
     setIsDrawingPhase(false);
     await supabase.rpc("test_set_event_status", { p_event_id: selectedEventId, p_status: state });
     await loadEventStatus();
