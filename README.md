@@ -298,6 +298,5 @@ En criollo: la lógica de negocio, los números, y las reglas ya están puestas 
 
 ---
 
-## 👥 Equipo
-
-Proyecto universitario — Facultad de [nombre de la facultad].
+## Desarrollado por
+Franco Joaquín Gómez — Universidad de Tierra Del Fuego.
