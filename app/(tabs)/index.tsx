@@ -10,9 +10,10 @@
  */
 
 import { ThemedText } from "@/components/themed-text";
+import { TicketQrScannerModal } from "@/components/TicketQrScannerModal";
 import { fmtSlp, useSlpPrice } from "@/hooks/use-slp-price";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { Linking, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -218,27 +219,33 @@ export default function HomeScreen() {
   const [pastEvents, setPastEvents] = useState<PastEvent[]>([]);
   const [annualHistory, setAnnualHistory] = useState<AnnualEventHistory[]>([]);
   const [globalStats, setGlobalStats] = useState({ totalSlpBurned: 0, totalAxiesReleased: 0, totalEvents: 0 });
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
+    const { data: configRow } = await supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", "show_test_events_in_history")
+      .maybeSingle();
+    const showTestEvents = configRow?.value === "true";
+
     // ── Evento activo (si hay) ──
-    const { data: active } = await supabase
+    let activeQuery = supabase
       .from("events")
       .select("id, event_number, label, status, rewards_pool_slp, swap_pool_slp, burn_pool_slp, ops_pool_slp, special_pool_slp")
-      .in("status", ["activo", "swap"])
-      .order("event_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .in("status", ["activo", "swap"]);
+    if (!showTestEvents) activeQuery = activeQuery.gt("event_number", 0);
+    const { data: active } = await activeQuery.order("event_number", { ascending: false }).limit(1).maybeSingle();
     setActiveEvent(active ?? null);
 
-    // ── Últimos 3 eventos mensuales completados (reales) ──
-    const { data: completed } = await supabase
+    // ── Últimos 3 eventos mensuales completados (reales, o de test si el toggle está prendido) ──
+    let completedQuery = supabase
       .from("events")
       .select("id, event_number, label, date_start, total_raised_slp, axies_released, ritual_level")
-      .eq("status", "completado")
-      .gt("event_number", 0) // excluye eventos de test (negativos) y TESTEVENTO (0)
-      .order("event_number", { ascending: false })
-      .limit(3);
+      .eq("status", "completado");
+    if (!showTestEvents) completedQuery = completedQuery.gt("event_number", 0);
+    const { data: completed } = await completedQuery.order("event_number", { ascending: false }).limit(3);
 
     if (completed) {
       const withRewards = await Promise.all(
@@ -254,15 +261,28 @@ export default function HomeScreen() {
     }
 
     // ── Stats globales — agregados de TODOS los eventos reales completados ──
-    const { data: allCompleted } = await supabase
+    let allCompletedQuery = supabase
       .from("events")
-      .select("burn_pool_slp, axies_released")
-      .eq("status", "completado")
-      .gt("event_number", 0);
+      .select("id, axies_released")
+      .eq("status", "completado");
+    if (!showTestEvents) allCompletedQuery = allCompletedQuery.gt("event_number", 0);
+    const { data: allCompleted } = await allCompletedQuery;
 
     if (allCompleted) {
+      const eventIds = allCompleted.map((e) => e.id);
+      // burn_pool_slp queda en 0 después de cerrar el evento (ya se quemó) —
+      // el monto real quemado vive en event_funds, no en events.
+      let burnedTotal = 0;
+      if (eventIds.length > 0) {
+        const { data: burnRows } = await supabase
+          .from("event_funds")
+          .select("total_slp")
+          .in("event_id", eventIds)
+          .eq("name", "Quema Directa");
+        burnedTotal = (burnRows ?? []).reduce((a, r) => a + (r.total_slp ?? 0), 0);
+      }
       setGlobalStats({
-        totalSlpBurned: allCompleted.reduce((a, e) => a + (e.burn_pool_slp ?? 0), 0),
+        totalSlpBurned: burnedTotal,
         totalAxiesReleased: allCompleted.reduce((a, e) => a + (e.axies_released ?? 0), 0),
         totalEvents: allCompleted.length,
       });
@@ -306,15 +326,8 @@ export default function HomeScreen() {
   }, [loadData]);
 
   // ── REALTIME — se actualiza solo cuando cambian eventos o annual_event ──
-  useEffect(() => {
-    const channel = supabase
-      .channel("home-live-updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "annual_event" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "annual_pool" }, () => loadData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [loadData]);
+  // Recarga cada vez que volvés a esta pantalla.
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const eventNumberLabel = activeEvent ? String(activeEvent.event_number).padStart(2, "0") : "--";
 
@@ -442,6 +455,18 @@ export default function HomeScreen() {
 
           {/* ── ÚLTIMOS RITUALES (reales) ── */}
           <Rune label="Últimos rituales realizados" />
+
+          <TouchableOpacity
+            style={{ borderWidth: 1.5, borderColor: C.goldBrt, padding: 10, alignItems: "center", marginBottom: 12, flexDirection: "row", justifyContent: "center", gap: 8 }}
+            onPress={() => setQrScannerOpen(true)}
+            activeOpacity={0.8}
+          >
+            <ThemedText style={{ fontSize: 14 }}>📷</ThemedText>
+            <ThemedText style={{ color: C.goldBrt, fontWeight: "900", fontSize: 11, letterSpacing: 1 }}>
+              BUSCAR RITUAL CON EL QR DE MI TICKET
+            </ThemedText>
+          </TouchableOpacity>
+
           {loading ? (
             <ThemedText style={{ color: C.slate, fontSize: 11, textAlign: "center", paddingVertical: 10 }}>Cargando histórico...</ThemedText>
           ) : pastEvents.length === 0 ? (
@@ -481,6 +506,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 20 }}><View style={{ flex: 1, height: 1, backgroundColor: C.border }} /><ThemedText style={{ color: C.borderMid, fontSize: 14, marginHorizontal: 12 }}>✡</ThemedText><View style={{ flex: 1, height: 1, backgroundColor: C.border }} /></View>
         <ThemedText style={{ color: C.borderMid, fontSize: 9, letterSpacing: 2, textAlign: "center", fontStyle: "italic", marginTop: 8 }}>Be one of US, be a Fynolt's Cultist</ThemedText>
       </ScrollView>
+      <TicketQrScannerModal visible={qrScannerOpen} onClose={() => setQrScannerOpen(false)} />
     </SafeAreaView>
   );
 }

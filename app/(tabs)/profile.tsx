@@ -3,10 +3,13 @@
  * Pantalla de perfil — wallet, tickets NFT reales, llaves anuales con QR.
  * 100% conectado a Supabase. Identidad = wallet_address directo.
  */
+import { BuyTicketsModal } from "@/components/BuyTicketsModal";
+import { TicketQrModal } from "@/components/TicketQrModal";
 import { useWallet } from "@/contexts/wallet-context";
 import { fmtSlp, usdToSlp, useSlpPrice } from "@/hooks/use-slp-price";
 import { useWalletProfile } from "@/hooks/use-wallet-profile";
 import { supabase } from "@/lib/supabase";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -233,8 +236,9 @@ function ticketStatusInfo(status: TicketRow["status"]) {
 }
 
 // ── TICKET CARD ──────────────────────────────────────────────────
-function TicketCard({ ticket }: { ticket: TicketRow }) {
+function TicketCard({ ticket, onPressQr }: { ticket: TicketRow; onPressQr: () => void }) {
   const info = ticketStatusInfo(ticket.status);
+  const canShowQr = ticket.status === "evento-finalizado";
   return (
     <View style={[tkc.card, { borderColor: info.color + "70" }]}>
       <View style={tkc.iconCol}>
@@ -245,6 +249,11 @@ function TicketCard({ ticket }: { ticket: TicketRow }) {
         <Text style={tkc.qr}>{ticket.qr_code}</Text>
         <Text style={[tkc.statusTxt, { color: info.color }]}>● {info.label}</Text>
         <Text style={tkc.statusDesc}>{info.desc}</Text>
+        {canShowQr && (
+          <TouchableOpacity onPress={onPressQr} style={tkc.qrLink}>
+            <Text style={tkc.qrLinkTxt}>▦ CLICK ACÁ PARA VER EL QR</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -256,6 +265,8 @@ const tkc = StyleSheet.create({
   qr: { color: C.parchmentDim, fontFamily: MONO, fontSize: 9, marginTop: 2 },
   statusTxt: { fontFamily: MONO, fontSize: 9, fontWeight: "900", marginTop: 4, letterSpacing: 0.5 },
   statusDesc: { color: C.muted, fontFamily: MONO, fontSize: 8, marginTop: 1 },
+  qrLink: { marginTop: 6, alignSelf: "flex-start", borderWidth: 1, borderColor: C.amber, paddingHorizontal: 8, paddingVertical: 4 },
+  qrLinkTxt: { color: C.amber, fontFamily: MONO, fontSize: 9, fontWeight: "900" },
 });
 
 // ── ANNUAL KEY CARD + QR MODAL ──────────────────────────────────
@@ -491,100 +502,6 @@ const ne = StyleSheet.create({
 });
 
 
-function BuyTicketsModal({
-  visible, onClose, activeEvent, address, slpPrice, onBought,
-}: {
-  visible: boolean; onClose: () => void; activeEvent: ActiveEvent;
-  address: string; slpPrice: number; onBought: () => void;
-}) {
-  const [qty, setQty] = useState("1");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const qtyNum = Math.max(1, Math.min(50, parseInt(qty || "1", 10) || 1));
-  const totalUsd = activeEvent.ticket_price_usd * qtyNum;
-  const totalSlp = usdToSlp(totalUsd, slpPrice);
-
-  const handleBuy = async () => {
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      // Compra secuencial — cada ticket es una llamada separada a
-      // buy_ticket() porque cada uno puede disparar su propia subida
-      // de nivel (la función ya maneja eso de forma atómica una vez
-      // por ticket).
-      for (let i = 0; i < qtyNum; i++) {
-        const slpForThisTicket = usdToSlp(activeEvent.ticket_price_usd, slpPrice);
-        const { error: rpcError } = await supabase.rpc("buy_ticket", {
-          p_event_id: activeEvent.id,
-          p_wallet_address: address,
-          p_paid_slp: slpForThisTicket,
-          p_tx_hash: "SIM-TX-" + Date.now() + "-" + i,
-        });
-        if (rpcError) throw rpcError;
-      }
-      setSuccess(`✓ ${qtyNum} ticket${qtyNum > 1 ? "s" : ""} comprado${qtyNum > 1 ? "s" : ""} con éxito.`);
-      onBought();
-    } catch (e: any) {
-      setError(e?.message ?? "Error al comprar el ticket.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={qm.overlay}>
-        <View style={[qm.box, { borderColor: C.red }]}>
-          <Text style={[qm.title, { color: C.red }]}>COMPRAR TICKETS</Text>
-          <Text style={qm.sub}>Elegí cuántos tickets querés comprar</Text>
-
-          <View style={bm.qtyRow}>
-            <TouchableOpacity style={bm.qtyBtn} onPress={() => setQty(String(qtyNum - 1))} disabled={qtyNum <= 1}>
-              <Text style={bm.qtyBtnTxt}>−</Text>
-            </TouchableOpacity>
-            <TextInput
-              value={qty}
-              onChangeText={setQty}
-              keyboardType="numeric"
-              style={bm.qtyInput}
-              maxLength={2}
-            />
-            <TouchableOpacity style={bm.qtyBtn} onPress={() => setQty(String(qtyNum + 1))} disabled={qtyNum >= 50}>
-              <Text style={bm.qtyBtnTxt}>+</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={bm.totalBox}>
-            <Text style={bm.totalLabel}>TOTAL A PAGAR</Text>
-            <Text style={bm.totalSlp}>{fmtSlp(totalSlp)} SLP</Text>
-            <Text style={bm.totalUsd}>(~${totalUsd.toFixed(2)} USD)</Text>
-          </View>
-
-          {error && <Text style={bm.errorTxt}>{error}</Text>}
-          {success && <Text style={bm.successTxt}>{success}</Text>}
-
-          <View style={{ width: "100%", marginTop: 16 }}>
-            <ArcadeButton
-              label={loading ? "COMPRANDO..." : "CONFIRMAR COMPRA"}
-              sub="Simulado — sin transacción on-chain real todavía"
-              color="red"
-              loading={loading}
-              onPress={handleBuy}
-            />
-          </View>
-
-          <TouchableOpacity onPress={onClose} style={[qm.closeBtn, { marginTop: 10 }]}>
-            <Text style={qm.closeTxt}>CERRAR</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 const bm = StyleSheet.create({
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 },
   qtyBtn: { width: 40, height: 40, borderWidth: 1.5, borderColor: C.red, alignItems: "center", justifyContent: "center" },
@@ -608,6 +525,7 @@ export default function ProfileScreen() {
   const [annualKeys, setAnnualKeys] = useState<AnnualKeyRow[]>([]);
   const [activeEvent, setActiveEvent] = useState<ActiveEvent | null>(null);
   const [selectedKey, setSelectedKey] = useState<AnnualKeyRow | null>(null);
+  const [selectedTicketForQr, setSelectedTicketForQr] = useState<TicketRow | null>(null);
   const [buyModalOpen, setBuyModalOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 
@@ -662,17 +580,11 @@ export default function ProfileScreen() {
     loadProfileData();
   }, [loadProfileData]);
 
-  // Realtime — tickets/llaves/perfil nuevos se reflejan solos
-  useEffect(() => {
-    if (!address) return;
-    const channel = supabase
-      .channel(`profile-live-${address}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `wallet_address=eq.${address}` }, () => loadProfileData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "annual_keys", filter: `owner_wallet=eq.${address}` }, () => loadProfileData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `wallet_address=eq.${address}` }, () => refetchProfile())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [address, loadProfileData]);
+  // Recarga cada vez que volvés a esta pantalla (tickets, llaves, perfil).
+  useFocusEffect(useCallback(() => {
+    loadProfileData();
+    refetchProfile();
+  }, [loadProfileData, refetchProfile]));
 
   const handleLogin = async () => { await connectAndAuthenticate(); };
   const handleLogout = () => { disconnect(); };
@@ -790,7 +702,7 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View>
-            {tickets.map(t => <TicketCard key={t.id} ticket={t} />)}
+            {tickets.map(t => <TicketCard key={t.id} ticket={t} onPressQr={() => setSelectedTicketForQr(t)} />)}
           </View>
         )}
 
@@ -833,6 +745,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <KeyQrModal visible={!!selectedKey} keyRow={selectedKey} onClose={() => setSelectedKey(null)} />
+      <TicketQrModal visible={!!selectedTicketForQr} ticket={selectedTicketForQr} onClose={() => setSelectedTicketForQr(null)} />
 
       {address && (
         <AvatarPickerModal

@@ -12,11 +12,13 @@
  *   B — No hay evento activo: mensaje "no hay ritual en curso"
  */
 
+import { BuyTicketsModal } from "@/components/BuyTicketsModal";
 import { ThemedText } from "@/components/themed-text";
 import { useWallet } from "@/contexts/wallet-context";
+import { pad2, useCountdown } from "@/hooks/use-countdown";
 import { fmtSlp, usdToSlp, useSlpPrice } from "@/hooks/use-slp-price";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Linking,
@@ -234,6 +236,56 @@ function NoActiveEvent() {
 }
 
 // ─────────────────────────────────────────────
+// CONTADOR DE VENTA — cuenta regresiva hasta que cierra la venta
+// de tickets (date_start + sale_window_hours, ej. 72hs).
+// ─────────────────────────────────────────────
+function SaleCountdown({ event, saleWindowHours }: { event: ActiveEvent; saleWindowHours: number }) {
+  // date_start ya es un timestamptz preciso (el momento exacto en que
+  // el evento pasó a 'activo'), así que esto SÍ arranca en 72:00 justos.
+  const deadline = new Date(event.date_start).getTime() + saleWindowHours * 3600 * 1000;
+  const cd = useCountdown(deadline);
+  if (!cd) return null;
+
+  const totalHours = cd.days * 24 + cd.hours; // sin desglosar en días
+  const urgent = totalHours < 6;
+
+  return (
+    <ArcaneBox color={urgent ? C.crimsonBrt : C.crimson} style={{ marginBottom: 14 }} elevated>
+      <View style={{ alignItems: "center" }}>
+        <ThemedText style={[sc.label, urgent && { color: C.crimsonBrt }]}>
+          {cd.expired ? "⏰ VENTANA DE VENTA CERRADA" : "⏳ TIEMPO PARA PARTICIPAR"}
+        </ThemedText>
+        {!cd.expired && (
+          <>
+            <View style={sc.row}>
+              <ThemedText style={[sc.num, urgent && { color: C.crimsonBrt }]}>{pad2(totalHours)}</ThemedText>
+              <ThemedText style={[sc.colon, urgent && { color: C.crimsonBrt }]}>:</ThemedText>
+              <ThemedText style={[sc.num, urgent && { color: C.crimsonBrt }]}>{pad2(cd.minutes)}</ThemedText>
+            </View>
+            <View style={sc.labelsRow}>
+              <ThemedText style={sc.unitLabel}>HORAS</ThemedText>
+              <ThemedText style={sc.unitLabel}>MINUTOS</ThemedText>
+            </View>
+            <ThemedText style={sc.sub}>
+              La venta de tickets cierra {urgent ? "muy pronto" : `en ~${totalHours}hs`} — después pasa a la ventana de Swap.
+            </ThemedText>
+          </>
+        )}
+      </View>
+    </ArcaneBox>
+  );
+}
+const sc = StyleSheet.create({
+  label: { color: C.crimson, fontWeight: "900", fontSize: 12, letterSpacing: 2, marginBottom: 10 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  num: { color: C.crimson, fontWeight: "900", fontSize: 42, fontFamily: "monospace", lineHeight: 46, minWidth: 68, textAlign: "center" },
+  colon: { color: C.crimson, fontWeight: "900", fontSize: 34, marginTop: -6 },
+  labelsRow: { flexDirection: "row", gap: 46, marginBottom: 10 },
+  unitLabel: { color: C.slate, fontSize: 9, letterSpacing: 1.5, minWidth: 68, textAlign: "center" },
+  sub: { color: C.slate, fontSize: 10, textAlign: "center", marginTop: 4 },
+});
+
+// ─────────────────────────────────────────────
 // NIVEL DEL RITUAL — barra de progreso, todo en SLP (USD como referencia)
 // ─────────────────────────────────────────────
 function RitualLevelMeter({ event }: { event: ActiveEvent }) {
@@ -249,9 +301,13 @@ function RitualLevelMeter({ event }: { event: ActiveEvent }) {
   const remainingUsd = Math.max(config.threshold - poolUsdEquiv, 0);
   const remainingSlp = usdToSlp(remainingUsd, slpPrice);
 
-  const totalRaisedSlp = event.total_raised_usd > 0 && slpPrice > 0
-    ? usdToSlp(event.total_raised_usd, slpPrice)
-    : 0;
+  // Izquierda + derecha siempre deben sumar el umbral del nivel actual.
+  // Izquierda = lo que ya se acumuló en el pool DE ESTE NIVEL (0 → ahora).
+  // Al subir de nivel, rewards_pool_slp se resetea (menos lo gastado en el
+  // milestone anterior), así que esto vuelve a arrancar cerca de 0 — es
+  // el comportamiento esperado, no un bug.
+  const poolAccumulatedSlp = event.rewards_pool_slp;
+  const poolAccumulatedUsd = poolUsdEquiv;
 
   return (
     <ArcaneBox color={C.ember} style={{ marginBottom: 14 }}>
@@ -286,9 +342,9 @@ function RitualLevelMeter({ event }: { event: ActiveEvent }) {
 
       <View style={lm.infoRow}>
         <View style={lm.infoItem}>
-          <ThemedText style={lm.infoVal}>{priceLoading ? "..." : fmtSlp(totalRaisedSlp)}</ThemedText>
-          <ThemedText style={lm.infoKey}>SLP RECAUDADOS</ThemedText>
-          <ThemedText style={lm.infoKeyUsd}>(~${event.total_raised_usd.toFixed(0)})</ThemedText>
+          <ThemedText style={lm.infoVal}>{priceLoading ? "..." : fmtSlp(poolAccumulatedSlp)}</ThemedText>
+          <ThemedText style={lm.infoKey}>ACUMULADO ESTE NIVEL</ThemedText>
+          <ThemedText style={lm.infoKeyUsd}>(~${poolAccumulatedUsd.toFixed(2)})</ThemedText>
         </View>
         <View style={[lm.infoDiv, { backgroundColor: C.borderMid }]} />
         <View style={lm.infoItem}>
@@ -344,21 +400,22 @@ const lm = StyleSheet.create({
 // ─────────────────────────────────────────────
 // COMPRE SU TICKET — cambia según estado de wallet
 // ─────────────────────────────────────────────
-function TicketCTA({ event }: { event: ActiveEvent }) {
-  const { isAuthenticated, address, connectAndAuthenticate, isConnecting, isVerifying } = useWallet();
+function TicketCTA({ event, onBought }: { event: ActiveEvent; onBought: () => void }) {
+  const { isAuthenticated, address, isConnecting, isVerifying } = useWallet();
   const { price: slpPrice, loading: priceLoading } = useSlpPrice();
   const router = useRouter();
+  const [buyModalOpen, setBuyModalOpen] = useState(false);
 
   const ticketCostSlp = usdToSlp(event.ticket_price_usd, slpPrice);
   const isLoading = isConnecting || isVerifying;
 
-  const handlePress = async () => {
+  const handlePress = () => {
     if (isAuthenticated) {
-      // TODO: acá va la lógica real de pago en SLP + buy_ticket()
-      // Por ahora es solo visual, como acordamos.
-      return;
+      setBuyModalOpen(true);
+    } else {
+      // El login con wallet vive en /profile — ahí es donde se conecta.
+      router.push("/profile");
     }
-    await connectAndAuthenticate();
   };
 
   return (
@@ -392,12 +449,28 @@ function TicketCTA({ event }: { event: ActiveEvent }) {
               ? "CONECTANDO..."
               : isAuthenticated
               ? "COMPRAR TICKET"
-              : "CONECTAR WALLET PARA PARTICIPAR"}
+              : "INICIAR SESIÓN PARA PARTICIPAR"}
           </ThemedText>
           <ThemedText style={tc.btnIcon}>⚔️</ThemedText>
         </View>
         <View style={[tc.btnSideR, { borderColor: C.crimson }]} />
       </TouchableOpacity>
+      {!isAuthenticated && (
+        <ThemedText style={[tc.disclaimer, { marginTop: 6 }]}>
+          Te va a llevar a tu perfil para conectar la wallet. Volvé después a comprar.
+        </ThemedText>
+      )}
+
+      {isAuthenticated && address && (
+        <BuyTicketsModal
+          visible={buyModalOpen}
+          onClose={() => setBuyModalOpen(false)}
+          activeEvent={{ id: event.id, ticket_price_usd: event.ticket_price_usd }}
+          address={address}
+          slpPrice={slpPrice}
+          onBought={() => { setBuyModalOpen(false); onBought(); }}
+        />
+      )}
 
       <ThemedText style={tc.disclaimer}>
         Ventana activa · cierra el{" "}
@@ -525,16 +598,25 @@ export default function MilestoneScreen() {
 
   const [event, setEvent] = useState<ActiveEvent | null>(null);
   const [rewards, setRewards] = useState<RewardUnlocked[]>([]);
+  const [saleWindowHours, setSaleWindowHours] = useState(72); // fallback hasta que cargue system_config
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadActiveEvent = useCallback(async () => {
-    const { data: eventData, error: eventError } = await supabase
-      .from("events")
-      .select("id, event_number, label, date_start, date_end, status, ritual_level, rewards_pool_slp, rewards_pool_usd, total_raised_usd, ticket_price_usd")
-      .eq("status", "activo")
-      .limit(1)
-      .maybeSingle();
+    const [{ data: eventData, error: eventError }, { data: configData }] = await Promise.all([
+      supabase
+        .from("events")
+        .select("id, event_number, label, date_start, date_end, status, ritual_level, rewards_pool_slp, rewards_pool_usd, total_raised_usd, ticket_price_usd")
+        .eq("status", "activo")
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("system_config").select("value").eq("key", "sale_window_hours").maybeSingle(),
+    ]);
+
+    if (configData?.value) {
+      const parsed = parseInt(configData.value, 10);
+      if (!isNaN(parsed)) setSaleWindowHours(parsed);
+    }
 
     if (eventError) {
       console.error("[Milestone] Error cargando evento activo:", eventError);
@@ -571,25 +653,8 @@ export default function MilestoneScreen() {
   // ── REALTIME — cualquier cambio en events o rewards recarga automático ──
   // Esto es lo que permite que el panel de Test (en otra pestaña) se
   // refleje acá sin tener que recargar la página manualmente.
-  useEffect(() => {
-    const channel = supabase
-      .channel("milestone-live-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "events" },
-        () => loadActiveEvent()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "level_rewards_unlocked" },
-        () => loadActiveEvent()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loadActiveEvent]);
+  // Recarga cada vez que volvés a esta pantalla.
+  useFocusEffect(useCallback(() => { loadActiveEvent(); }, [loadActiveEvent]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -617,13 +682,16 @@ export default function MilestoneScreen() {
           </>
         ) : (
           <>
+            {/* ── 0. CONTADOR DE VENTA ── */}
+            <SaleCountdown event={event} saleWindowHours={saleWindowHours} />
+
             {/* ── 1. NIVEL DEL RITUAL ── */}
             <RuneDivider label="Nivel del Ritual" />
             <RitualLevelMeter event={event} />
 
             {/* ── 2. COMPRE SU TICKET ── */}
             <RuneDivider label="Compre su Ticket" />
-            <TicketCTA event={event} />
+            <TicketCTA event={event} onBought={loadActiveEvent} />
 
             {/* ── 3. REWARDS DESBLOQUEADAS ── */}
             <RuneDivider label="Rewards Desbloqueadas" />

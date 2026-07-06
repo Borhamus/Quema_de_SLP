@@ -9,10 +9,21 @@
  *   4. El "Pentagrama" — entregás un Axie, el Cirquero te da SLP
  *      (floor price), con esa estética de mercader oscuro/sombrío
  */
+import { CooldownAxiePickerModal, CooldownOfferModal, CooldownTimer } from "@/components/CooldownModal";
+import { HScroller } from "@/components/HScroller";
+import {
+  getRingmasterOfferLine,
+  pickRandom,
+  RINGMASTER_INTRO_LINES,
+  RINGMASTER_NO_AXIES_LINES,
+  RINGMASTER_NO_TICKET_LINES,
+} from "@/constants/ringmasterLines";
 import { useWallet } from "@/contexts/wallet-context";
+import { pad2, useCountdown } from "@/hooks/use-countdown";
 import { fmtSlp, usdToSlp, useSlpPrice } from "@/hooks/use-slp-price";
 import { Axie, getAxiesForWallet } from "@/lib/axie-service";
 import { supabase } from "@/lib/supabase";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -23,7 +34,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -188,15 +199,18 @@ function RingmasterOfferModal({
   loading: boolean; result: { ok: boolean; message: string } | null;
   onConfirm: () => void; onClose: () => void;
 }) {
+  const [line, setLine] = useState("");
+  useEffect(() => {
+    if (visible && axie) setLine(getRingmasterOfferLine(axie.class));
+  }, [visible, axie]);
+
   if (!axie) return null;
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={rm.overlay}>
         <View style={rm.box}>
           <PixelRingmaster size={88} />
-          <Text style={rm.speech}>
-            "Mmh... un {axie.class.toLowerCase()}... no vale gran cosa, pero te daré unas monedas. ¿Trato hecho?"
-          </Text>
+          <Text style={rm.speech}>"{line}"</Text>
 
           <View style={rm.axiePreview}>
             <Image source={{ uri: axie.imageUrl }} style={rm.axieImg} resizeMode="contain" />
@@ -255,7 +269,62 @@ const rm = StyleSheet.create({
 });
 
 // ── TIPOS ────────────────────────────────────────────────────────
-type ActiveEvent = { id: string; event_number: number; status: string; swap_pool_slp: number };
+type ActiveEvent = { id: string; event_number: number; status: string; swap_pool_slp: number; date_start: string; swap_started_at: string | null };
+
+// ── CONTADOR DE VENTANA DE SWAP (24hs desde que abrió de verdad) ───
+function SwapCountdown({ swapStartedAt, swapWindowHours }: { swapStartedAt: string | null; swapWindowHours: number }) {
+  const deadline = swapStartedAt ? new Date(swapStartedAt).getTime() + swapWindowHours * 3600 * 1000 : null;
+  const cd = useCountdown(deadline);
+  if (!cd) return null;
+
+  const totalHours = cd.days * 24 + cd.hours;
+  const urgent = totalHours < 2;
+
+  return (
+    <View style={swct.wrap}>
+      <Text style={[swct.label, urgent && { color: C.red }]}>
+        {cd.expired ? "⏰ CORTINA A PUNTO DE CERRAR" : "⏳ LA CORTINA SE CIERRA EN"}
+      </Text>
+      {!cd.expired && (
+        <View style={swct.row}>
+          <Text style={[swct.num, urgent && { color: C.red }]}>{pad2(totalHours)}</Text>
+          <Text style={swct.colon}>:</Text>
+          <Text style={[swct.num, urgent && { color: C.red }]}>{pad2(cd.minutes)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── CONTADOR DE "FALTA PARA QUE ABRA EL SWAP" (mientras está en venta) ──
+function SwapOpensCountdown({ dateStart, saleWindowHours }: { dateStart: string; saleWindowHours: number }) {
+  const deadline = new Date(dateStart).getTime() + saleWindowHours * 3600 * 1000;
+  const cd = useCountdown(deadline);
+  if (!cd) return null;
+  const totalHours = cd.days * 24 + cd.hours;
+
+  return (
+    <View style={swct.wrap}>
+      <Text style={swct.label}>
+        {cd.expired ? "⏳ ABRIENDO..." : "⏳ LA CORTINA SE ABRE EN"}
+      </Text>
+      {!cd.expired && (
+        <View style={swct.row}>
+          <Text style={swct.num}>{pad2(totalHours)}</Text>
+          <Text style={swct.colon}>:</Text>
+          <Text style={swct.num}>{pad2(cd.minutes)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+const swct = StyleSheet.create({
+  wrap: { alignItems: "center", borderWidth: 1, borderColor: C.purple + "60", backgroundColor: C.ink, paddingVertical: 14, marginBottom: 14 },
+  label: { color: C.purple, fontFamily: MONO, fontSize: 10, letterSpacing: 2, fontWeight: "900", marginBottom: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: 6 },
+  num: { color: C.parchment, fontFamily: MONO, fontSize: 26, fontWeight: "900", minWidth: 44, textAlign: "center" },
+  colon: { color: C.muted, fontFamily: MONO, fontSize: 20, fontWeight: "900" },
+});
 
 // ── SCREEN ──────────────────────────────────────────────────────
 export default function SwapScreen() {
@@ -266,6 +335,8 @@ export default function SwapScreen() {
   const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] });
 
   const [event, setEvent] = useState<ActiveEvent | null>(null);
+  const [saleWindowHours, setSaleWindowHours] = useState(72);
+  const [swapWindowHours, setSwapWindowHours] = useState(24);
   const [hasTicket, setHasTicket] = useState<boolean | null>(null);
   const [axies, setAxies] = useState<Axie[]>([]);
   const [axiesLoading, setAxiesLoading] = useState(false);
@@ -275,30 +346,49 @@ export default function SwapScreen() {
   const [swapping, setSwapping] = useState(false);
   const [swapResult, setSwapResult] = useState<{ ok: boolean; message: string } | null>(null);
 
+  // líneas del cirquero — una elegida al azar por visita a la pantalla
+  const [introLine] = useState(() => pickRandom(RINGMASTER_INTRO_LINES));
+  const [noTicketLine] = useState(() => pickRandom(RINGMASTER_NO_TICKET_LINES));
+  const [noAxiesLine] = useState(() => pickRandom(RINGMASTER_NO_AXIES_LINES));
+
+  // ── Cooldown de 4hs tras entregar un Axie ──────────────────────
+  const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
+  const [payingCooldown, setPayingCooldown] = useState(false);
+  const [axiePickerOpen, setAxiePickerOpen] = useState(false);
+  const [givingAxieCooldown, setGivingAxieCooldown] = useState(false);
+  // Arranca en true: el modal NUNCA se abre solo. Solo se abre cuando
+  // el usuario toca el botón explícito de la cortina de cooldown.
+  const [offerDismissed, setOfferDismissed] = useState(true);
+
   // ── Floor price simulado (mismo para todos los Axies, por simplicidad) ──
   const FLOOR_PRICE_USD = 0.45;
   const floorPriceSlp = usdToSlp(FLOOR_PRICE_USD, slpPrice);
 
   const loadEvent = useCallback(async () => {
-    const { data } = await supabase
-      .from("events")
-      .select("id, event_number, status, swap_pool_slp")
-      .eq("status", "swap")
-      .order("event_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data }, { data: cfg }] = await Promise.all([
+      supabase
+        .from("events")
+        .select("id, event_number, status, swap_pool_slp, date_start, swap_started_at")
+        .in("status", ["activo", "swap"])
+        .order("event_number", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("system_config").select("key, value").in("key", ["sale_window_hours", "swap_window_hours"]),
+    ]);
     setEvent(data ?? null);
+    cfg?.forEach((row) => {
+      const n = parseInt(row.value, 10);
+      if (isNaN(n)) return;
+      if (row.key === "sale_window_hours") setSaleWindowHours(n);
+      if (row.key === "swap_window_hours") setSwapWindowHours(n);
+    });
   }, []);
+
 
   useEffect(() => { loadEvent(); }, [loadEvent]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel("swap-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => loadEvent())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [loadEvent]);
+  // Recarga cada vez que volvés a esta pantalla.
+  useFocusEffect(useCallback(() => { loadEvent(); }, [loadEvent]));
 
   // Verificar ticket holder + cargar Axies cuando hay evento abierto y wallet conectada
   useEffect(() => {
@@ -327,6 +417,60 @@ export default function SwapScreen() {
     })();
   }, [event, address]);
 
+  const checkCooldown = useCallback(async () => {
+    if (!event || !address) { setCooldownUntil(null); return; }
+    const { data } = await supabase
+      .from("participants")
+      .select("swap_cooldown_until")
+      .eq("event_id", event.id)
+      .eq("wallet_address", address)
+      .maybeSingle();
+    const until = data?.swap_cooldown_until as string | undefined;
+    setCooldownUntil(until && new Date(until) > new Date() ? until : null);
+  }, [event, address]);
+
+  useEffect(() => { checkCooldown(); }, [checkCooldown]);
+
+  // re-chequea cada 15s por si el cooldown vence solo mientras la pantalla está abierta
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const t = setInterval(checkCooldown, 15000);
+    return () => clearInterval(t);
+  }, [cooldownUntil, checkCooldown]);
+
+  const COOLDOWN_RELEASE_USD = 2;
+  const cooldownReleaseSlp = usdToSlp(COOLDOWN_RELEASE_USD, slpPrice);
+
+  const handlePayCooldown = async () => {
+    if (!event || !address) return;
+    setPayingCooldown(true);
+    const { data, error } = await supabase.rpc("release_swap_cooldown_with_slp", {
+      p_event_id: event.id,
+      p_wallet_address: address,
+      p_paid_slp: cooldownReleaseSlp,
+      p_tx_hash: "SIM-COOLDOWN-PAGO-" + Date.now(),
+    });
+    setPayingCooldown(false);
+    if (!error && data?.success) await checkCooldown();
+  };
+
+  const handleGiveAxieForCooldown = async (axie: Axie) => {
+    if (!event || !address) return;
+    setGivingAxieCooldown(true);
+    const { data, error } = await supabase.rpc("release_swap_cooldown_with_axie", {
+      p_event_id: event.id,
+      p_wallet_address: address,
+      p_axie_id: axie.id,
+      p_tx_hash: "SIM-COOLDOWN-AXIE-" + Date.now(),
+    });
+    setGivingAxieCooldown(false);
+    if (!error && data?.success) {
+      setAxies((prev) => prev.filter((a) => a.id !== axie.id));
+      setAxiePickerOpen(false);
+      await checkCooldown();
+    }
+  };
+
   const handleConfirmSwap = async () => {
     if (!selectedAxie || !event || !address) return;
     setSwapping(true);
@@ -349,20 +493,29 @@ export default function SwapScreen() {
     if (data?.success === false) {
       setSwapResult({ ok: false, message: data.message ?? "El swap no pudo completarse." });
       await loadEvent();
+      await checkCooldown();
       return;
     }
 
     setSwapResult({ ok: true, message: `🔮 Trato cerrado. Recibiste ${fmtSlp(floorPriceSlp)} SLP.` });
     setAxies((prev) => prev.filter((a) => a.id !== selectedAxie.id));
     await loadEvent();
+    await checkCooldown();
   };
 
-  const isSwapOpen = !!event;
+  const isSwapOpen = event?.status === "swap";
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <HudBar poolSlp={event?.swap_pool_slp ?? null} />
+
+        {isSwapOpen && event && (
+          <SwapCountdown swapStartedAt={event.swap_started_at} swapWindowHours={swapWindowHours} />
+        )}
+        {!isSwapOpen && event && event.status === "activo" && (
+          <SwapOpensCountdown dateStart={event.date_start} saleWindowHours={saleWindowHours} />
+        )}
 
         {!isSwapOpen ? (
           // ── CORTINA CERRADA — sin cambios visuales del original ──
@@ -422,9 +575,7 @@ export default function SwapScreen() {
             ) : hasTicket === false ? (
               <View style={gate.box}>
                 <PixelRingmaster size={80} />
-                <Text style={gate.txt}>
-                  "Sin ticket no hay trato. Volvé cuando hayas participado del ritual."
-                </Text>
+                <Text style={gate.txt}>"{noTicketLine}"</Text>
               </View>
             ) : hasTicket === null || axiesLoading ? (
               <View style={gate.box}>
@@ -432,11 +583,34 @@ export default function SwapScreen() {
                   Buscando tus Axies en la wallet...
                 </Text>
               </View>
+            ) : cooldownUntil ? (
+              <View style={curtain.panel}>
+                <View style={curtain.tape}><Text style={curtain.tapeTxt}>⚠ EN COOLDOWN ⚠</Text></View>
+                <View style={[curtain.body, { height: 160 }]}>
+                  <PixelPadlock size={80} />
+                </View>
+                <View style={info.card}>
+                  <Text style={info.desc}>
+                    Ya le entregaste un Axie al cirquero. Podés esperar, o intentar convencerlo para volver a entrar antes de tiempo.
+                  </Text>
+                  <View style={{ paddingHorizontal: 14, paddingBottom: 4 }}>
+                    <CooldownTimer until={cooldownUntil} />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[btn.btn, { justifyContent: "center", marginTop: 12, borderColor: C.amber, backgroundColor: C.amberDim + "30" }]}
+                  onPress={() => setOfferDismissed(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={btn.iconTxt}>🔓</Text>
+                  <Text style={[btn.label, { color: C.amber }]}>VER OPCIONES PARA ENTRAR AHORA</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <>
                 <PentagramFrame>
                   <PixelRingmaster size={90} />
-                  <Text style={pent.label}>"Dame uno... a cambio de unas monedas."</Text>
+                  <Text style={pent.label}>"{introLine}"</Text>
                 </PentagramFrame>
 
                 <View style={styles.sectionHead}>
@@ -448,21 +622,23 @@ export default function SwapScreen() {
 
                 {axies.length === 0 ? (
                   <View style={gate.box}>
-                    <Text style={gate.txt}>"No tenés nada que ofrecerme..."</Text>
+                    <Text style={gate.txt}>"{noAxiesLine}"</Text>
                   </View>
                 ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      {axies.map((a) => (
-                        <AxieCard
-                          key={a.id}
-                          axie={a}
-                          selected={selectedAxie?.id === a.id}
-                          onPress={() => setSelectedAxie(a)}
-                        />
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <View style={{ marginBottom: 16 }}>
+                    <HScroller>
+                      <View style={{ flexDirection: "row", gap: 10 }}>
+                        {axies.map((a) => (
+                          <AxieCard
+                            key={a.id}
+                            axie={a}
+                            selected={selectedAxie?.id === a.id}
+                            onPress={() => setSelectedAxie(a)}
+                          />
+                        ))}
+                      </View>
+                    </HScroller>
+                  </View>
                 )}
 
                 <TouchableOpacity
@@ -496,6 +672,26 @@ export default function SwapScreen() {
         result={swapResult}
         onConfirm={handleConfirmSwap}
         onClose={() => { setOfferOpen(false); setSwapResult(null); setSelectedAxie(null); }}
+      />
+
+      <CooldownOfferModal
+        visible={!!cooldownUntil && !axiePickerOpen && !offerDismissed}
+        cooldownUntil={cooldownUntil}
+        requiredSlp={cooldownReleaseSlp}
+        requiredUsd={COOLDOWN_RELEASE_USD}
+        payLoading={payingCooldown}
+        axieLoading={givingAxieCooldown}
+        onPaySlp={handlePayCooldown}
+        onOpenAxiePicker={() => setAxiePickerOpen(true)}
+        onClose={() => setOfferDismissed(true)}
+      />
+
+      <CooldownAxiePickerModal
+        visible={axiePickerOpen}
+        axies={axies}
+        loading={givingAxieCooldown}
+        onConfirm={handleGiveAxieForCooldown}
+        onClose={() => setAxiePickerOpen(false)}
       />
     </SafeAreaView>
   );

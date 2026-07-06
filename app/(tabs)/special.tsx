@@ -12,6 +12,7 @@ import { useWallet } from "@/contexts/wallet-context";
 import { fmtSlp } from "@/hooks/use-slp-price";
 import { supabase } from "@/lib/supabase";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -330,7 +331,7 @@ function KeyScannerModal({
             <View style={qs.cameraWrap}>
               <CameraView
                 style={StyleSheet.absoluteFillObject}
-                facing="back"
+                facing="front"
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                 onBarcodeScanned={scanning ? handleScan : undefined}
               />
@@ -408,14 +409,8 @@ export default function SpecialScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel("special-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "annual_pool" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "annual_keys" }, () => loadData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [loadData]);
+  // Recarga cada vez que volvés a esta pantalla.
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const liveKeys = myKeys.filter(k => k.status === "vivo");
   const rewardEach = pool ? Math.floor(pool.pool_slp / 10) : 0;
