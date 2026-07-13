@@ -14,7 +14,7 @@ import { TicketQrScannerModal } from "@/components/TicketQrScannerModal";
 import { fmtSlp, useSlpPrice } from "@/hooks/use-slp-price";
 import { supabase } from "@/lib/supabase";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -325,9 +325,43 @@ export default function HomeScreen() {
     loadData().finally(() => setLoading(false));
   }, [loadData]);
 
-  // ── REALTIME — se actualiza solo cuando cambian eventos o annual_event ──
-  // Recarga cada vez que volvés a esta pantalla.
+  // Recarga cada vez que volvés a esta pantalla (además del tiempo real de abajo).
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+
+  // ── TIEMPO REAL — el evento/pools "en curso" se actualiza SOLO, sin
+  // que el usuario tenga que salir y volver a entrar a Home. Requisito
+  // de la consigna: "que se actualicen en tiempo real los eventos/pools
+  // en curso, al menos en el listado de la pestaña del home".
+  //
+  // El nombre del canal incluye un sufijo único generado una sola vez
+  // por instancia del componente — si el canal tuviera un nombre fijo,
+  // navegar rápido entre pantallas puede intentar crear dos canales
+  // con el mismo nombre antes de que el anterior termine de limpiarse,
+  // y Supabase tira "cannot add postgres_changes callbacks... after
+  // subscribe()". Con un sufijo único por montaje, esto no puede pasar.
+  const instanceIdRef = useRef(Math.random().toString(36).slice(2));
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`home-active-event-${instanceIdRef.current}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        (payload) => {
+          // Solo nos importa reaccionar si el cambio toca un evento
+          // "en curso" (activo o en swap) — evita recargar Home por
+          // cambios en eventos ya cerrados hace tiempo.
+          const row = (payload.new ?? payload.old) as { status?: string } | null;
+          if (row?.status === "activo" || row?.status === "swap" || activeEvent) {
+            loadData();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadData]);
 
   const eventNumberLabel = activeEvent ? String(activeEvent.event_number).padStart(2, "0") : "--";
 
